@@ -4,7 +4,7 @@ Este é um bot de Telegram desenvolvido em **Python** para automatizar a coleta 
 
 ![Trecho do módulo principal]
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/b6a0edb2-0a67-4c04-9f46-3318e9c71b42" width="300" alt="Demonstração do Bot">
+  <img src="https://github.com/user-attachments/assets/b6a0edb2-0a67-4c04-9f46-3318e9c71b42" width="600" alt="Demonstração do Bot">
 </p>
 
 
