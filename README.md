@@ -3,7 +3,7 @@
 Este é um bot de Telegram desenvolvido em **Python** para automatizar a coleta de informações e a organização de registros diários de estágio. O bot guia o usuário através de um fluxo de perguntas, armazena as respostas em um banco de dados local (JSON) e organiza as fotos enviadas.
 
 ![Trecho do módulo principal]
-<img width="1080" height="1262" alt="image" src="https://github.com/user-attachments/assets/b6a0edb2-0a67-4c04-9f46-3318e9c71b42" />
+<img width="720" height="1080" alt="image" src="https://github.com/user-attachments/assets/b6a0edb2-0a67-4c04-9f46-3318e9c71b42" />
 
 
 ## 🚀 Objetivo
