@@ -8,16 +8,19 @@ from telegram.ext import ContextTypes, ConversationHandler
 from constants import *
 
 
-async def mensagem_informativa(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = (MSG_BOAS_VINDAS)
-    await update.message.reply_text(msg)
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     await update.message.reply_text(
-        MSG_START,
+        MSG_BOAS_VINDAS,
+        parse_mode='Markdown'
+    )
+
+
+async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = (MSG_START)
+    await update.message.reply_text(
+        msg,
         parse_mode='Markdown'
     )
     return DATA
@@ -65,11 +68,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 *Assistente de Diário de Bordo*\n\n"
         "Este bot ajuda você a registrar suas atividades de estágio de forma organizada.\n\n"
         "*Comandos disponíveis:*\n"
-        "/start - Inicia um novo registro diário.\n"
+        "/register - Inicia um novo registro diário.\n"
         "/cancel - Cancela o registro que está em andamento.\n"
         "/help - Mostra esta mensagem de ajuda.\n\n"
         "*Como funciona:*\n"
-        "1. Digite `/start`.\n"
+        "1. Digite `/register`.\n"
         "2. Responda às perguntas sobre data, conteúdo, objetivos, etc.\n"
         "3. Envie uma foto para finalizar o registro.\n\n"
         "💡 *Dica:* Na hora da data, você pode apenas digitar 'hoje'!"

@@ -23,9 +23,10 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler('help', help_command))
+    app.add_handler(CommandHandler('start', start))
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler('register', initiate_register)],
         states={
             DATA: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_data)],
         },
@@ -35,7 +36,7 @@ if __name__ == '__main__':
 
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND, mensagem_informativa))
+        filters.TEXT & ~filters.COMMAND, start))
 
     print('Iniciando o bot...')
     app.run_polling()
