@@ -21,10 +21,26 @@ DATA, HORARIO, ATIVIDADE, CONTEUDO, OBJETIVOS, DESCRICAO, DIFICULDADES, ASPECTOS
     9)
 
 
+async def mensagem_informativa(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = (
+        "👋 Olá! Eu sou o seu Assistente de Estágio.\n\n"
+        "No momento, não temos nenhum registro em andamento. "
+        "Para começar a anotar as atividades do seu estágio, envie o comando:\n\n"
+        "▶️ /start\n\n"
+        "Para ver os comandos e as instruções, envie o comando:\n\n"
+        "ℹ️ /help"
+    )
+    await update.message.reply_text(msg)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+
     await update.message.reply_text(
-        "Olá! Sou seu Assistente de Estágio. Vamos registrar o dia de hoje?\n"
-        "Para começar, digite /help e siga as instruções."
+        "🚀 *Iniciando Registro de Estágio*\n\n"
+        "Em que data (DD/MM/AAAA) você deseja adicionar as informações?\n"
+        "_(Dica: você pode digitar 'hoje')_",
+        parse_mode='Markdown'
     )
     return DATA
 
@@ -94,9 +110,12 @@ if __name__ == '__main__':
             DATA: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_data)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
+        allow_reentry=True
     )
 
     app.add_handler(conv_handler)
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND, mensagem_informativa))
 
     print('Iniciando o bot...')
     app.run_polling()
