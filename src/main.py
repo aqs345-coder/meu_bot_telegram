@@ -24,23 +24,69 @@ DATA, HORARIO, ATIVIDADE, CONTEUDO, OBJETIVOS, DESCRICAO, DIFICULDADES, ASPECTOS
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Olá! Sou seu Assistente de Estágio. Vamos registrar o dia de hoje?\n"
-        "Em que data (DD/MM/AAAA) você deseja adicionar as informações?"
+        "Para começar, digite /help e siga as instruções."
     )
     return DATA
 
 
 async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['data_estagio'] = update.message.text
-    await update.message.reply_text("Qual foi o conteúdo trabalhado?")
-    return CONTEUDO
+    texto_usuario = update.message.text.strip().lower()
+    data_final = ""
+
+    if texto_usuario in ["hoje", "hj", "today"]:
+        data_final = datetime.now().strftime("%d/%m/%Y")
+
+    else:
+        formatos = ["%d/%m/%Y", "%d/%m/%y", "%d-%m-%Y", "%d%m%Y", "%d.%m.%Y"]
+
+        for formato in formatos:
+            try:
+                data_obj = datetime.strptime(texto_usuario, formato)
+                data_final = data_obj.strftime("%d/%m/%Y")
+                break
+            except ValueError:
+                continue
+
+    if data_final:
+        context.user_data['data_estagio'] = data_final
+        await update.message.reply_text(f"Data definida como: {data_final}.\n"
+                                        f"Qual foi o conteúdo trabalhado?")
+        return CONTEUDO
+
+    else:
+        await update.message.reply_text(
+            "Não entendi a data. 🤔\n"
+            "Por favor, digite 'hoje' ou uma data válida (ex: 27/01/2026)."
+        )
+        return DATA
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Registro cancelado.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = (
+        "🤖 *Assistente de Diário de Bordo*\n\n"
+        "Este bot ajuda você a registrar suas atividades de estágio de forma organizada.\n\n"
+        "*Comandos disponíveis:*\n"
+        "/start - Inicia um novo registro diário.\n"
+        "/cancel - Cancela o registro que está em andamento.\n"
+        "/help - Mostra esta mensagem de ajuda.\n\n"
+        "*Como funciona:*\n"
+        "1. Digite `/start`.\n"
+        "2. Responda às perguntas sobre data, conteúdo, objetivos, etc.\n"
+        "3. Envie uma foto para finalizar o registro.\n\n"
+        "💡 *Dica:* Na hora da data, você pode apenas digitar 'hoje'!"
+    )
+
+    await update.message.reply_text(help_text, parse_mode='Markdown')
+
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler('help', help_command))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
