@@ -11,7 +11,7 @@ Facilitar o preenchimento diário do diário de bordo, garantindo que nenhum det
 - **Python 3.10+**
 - **python-telegram-bot:** Framework para interação com a API do Telegram.
 - **python-dotenv:** Gestão de variáveis de ambiente e segurança de tokens.
-- **JSON:** Armazenamento persistente de dados (Opção A).
+- **JSON:** Armazenamento persistente de dados.
 
 ## 📋 Funcionalidades
 
