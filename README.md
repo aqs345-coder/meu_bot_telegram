@@ -2,6 +2,17 @@
 
 Este é um bot de Telegram desenvolvido em **Python** para automatizar a coleta de informações e a organização de registros diários de estágio. O bot guia o usuário através de um fluxo de perguntas, armazena as respostas em um banco de dados local (JSON) e organiza as fotos enviadas.
 
+![Trecho do módulo principal]
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b6a0edb2-0a67-4c04-9f46-3318e9c71b42" width="600" alt="Demonstração do Bot">
+</p>
+
+![Trecho do conversa inicial]
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/65fa5297-1b93-466f-982e-e47372e595b9" width="600" alt="Demonstração do Bot">
+</p>
+
+
 ## 🚀 Objetivo
 
 Facilitar o preenchimento diário do diário de bordo, garantindo que nenhum detalhe (objetivos, dificuldades, aspectos positivos) seja esquecido, permitindo a posterior exportação dos dados para um modelo oficial em Word.
@@ -11,7 +22,7 @@ Facilitar o preenchimento diário do diário de bordo, garantindo que nenhum det
 - **Python 3.10+**
 - **python-telegram-bot:** Framework para interação com a API do Telegram.
 - **python-dotenv:** Gestão de variáveis de ambiente e segurança de tokens.
-- **JSON:** Armazenamento persistente de dados (Opção A).
+- **JSON:** Armazenamento persistente de dados.
 
 ## 📋 Funcionalidades
 
