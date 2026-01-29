@@ -8,21 +8,75 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from constants import *
 
+TECLADO_INICIAL = ReplyKeyboardMarkup(
+    [["📝 Registrar Dia"]],
+    resize_keyboard=True,
+    one_time_keyboard=True
+)
+
+TECLADO_CANCELAR = ReplyKeyboardMarkup(
+    [["❌ Cancelar"]],
+    resize_keyboard=True
+)
+
+TECLADO_CONFIRMACAO = ReplyKeyboardMarkup(
+    [
+        ["✅ SALVAR NO BANCO"],
+        ["📅 Editar Data", "⌚ Horário"],
+        ["📍 Local", "🏋️‍♂️ Atividade"],
+        ["📝 Conteúdo", "🎯 Objetivos"],
+        ["📖 Descrição", "⚠️ Dificuldades"],
+        ["✨ Aspectos", "📎 Editar Anexo"],
+        ["❌ Cancelar"]
+    ],
+    resize_keyboard=True
+)
+
+
+async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    d = context.user_data
+    status_anexo = "✅ Recebido" if d.get('caminho_anexo') else "❌ Pendente"
+
+    msg = (
+        f"📋 **REVISÃO DO REGISTRO**\n\n"
+        f"📅 **Data:** {d.get('data_estagio')}\n"
+        f"⌚ **Horário:** {d.get('horario')}\n"
+        f"📍 **Local:** {d.get('local')}\n"
+        f"🏋️‍♂️ **Atividade:** {d.get('atividade')}\n"
+        f"📝 **Conteúdo:** {d.get('conteudo_trabalhado')}\n"
+        f"🎯 **Objetivos:** {d.get('objetivos_aula')}\n"
+        f"📖 **Descrição:** {d.get('descricao')}\n"
+        f"⚠️ **Dificuldades:** {d.get('dificuldades')}\n"
+        f"✨ **Positivos:** {d.get('aspectos_positivos')}\n"
+        f"📎 **Anexo:** {status_anexo}\n\n"
+        f"O que deseja fazer?"
+    )
+
+    await update.message.reply_text(
+        msg,
+        parse_mode='Markdown',
+        reply_markup=TECLADO_CONFIRMACAO)
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     await update.message.reply_text(
         MSG_BOAS_VINDAS,
-        parse_mode='Markdown'
+        parse_mode='Markdown',
+        reply_markup=TECLADO_INICIAL
     )
 
 
 async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = (MSG_START)
+    context.user_data['horario'] = HORARIO_PADRAO
+    context.user_data['local'] = LOCAL_PADRAO
+    context.user_data['atividade'] = ATIVIDADE_PADRAO
+
     await update.message.reply_text(
-        msg,
-        parse_mode='Markdown'
+        MSG_START,
+        parse_mode='Markdown',
+        reply_markup=TECLADO_CANCELAR
     )
     return DATA
 
@@ -173,57 +227,38 @@ async def receber_anexos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await arquivo.download_to_drive(caminho_completo)
 
+    context.user_data['caminho_anexo'] = caminho_completo
+    context.user_data['editando'] = True
+
+    await update.message.reply_text("✅ Anexo recebido!")
+    await exibir_resumo(update, context)
+    return CONFIRMACAO
+
+
+async def confirmar_ou_editar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    opcao = update.message.text
     dados = context.user_data
 
-    try:
-        conn = sqlite3.connect("registros_estagio.db")
-        cursor = conn.cursor()
+    if "✅ SALVAR" in opcao:
+        return await salvar_no_banco_final(update, context)
+    if "Cancelar" in opcao:
+        return await cancel(update, context)
 
-        cursor.execute("""
-            INSERT INTO registros (
-                user_id, 
-                data_estagio, 
-                conteudo, 
-                objetivos, 
-                descricao, 
-                dificuldades, 
-                aspectos_positivos, 
-                caminho_anexo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            user.id,
-            dados.get('data_estagio'),
-            dados.get('conteudo_trabalhado'),
-            dados.get('objetivos_aula'),
-            dados.get('descricao'),
-            dados.get('dificuldades'),
-            dados.get('aspectos_positivos'),
-            caminho_completo
-        ))
+    for palavra_chave, (estado, mensagem, campo_valor) in ROTAS.items():
+        if palavra_chave in opcao:
+            if campo_valor:
+                valor_atual = dados.get(campo_valor, 'Não definido')
+                await update.message.reply_text(mensagem.format(valor_atual))
+            else:
+                await update.message.reply_text(mensagem)
+            return estado
 
-        conn.commit()
-        conn.close()
-
-        await update.message.reply_text(
-            "✅ **Registro Salvo com Sucesso!**\n\n"
-            f"{dados.items()}\n"
-            "Seus dados e o anexo foram guardados no sistema.\n"
-            "Até a próxima! 👋"
-        )
-
-    except Exception as e:
-        await update.message.reply_text(
-            "❌ Erro ao salvar no banco"
-        )
-        print(f"Erro: {e}")
-        return ANEXOS
-
-    context.user_data.clear()
-    return ConversationHandler.END
+    await update.message.reply_text("Opção inválida. Use o teclado abaixo.")
+    return CONFIRMACAO
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Registro cancelado.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Registro cancelado.", reply_markup=TECLADO_INICIAL)
     return ConversationHandler.END
 
 

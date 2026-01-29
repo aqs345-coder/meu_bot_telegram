@@ -32,7 +32,8 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('start', start))
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('register', initiate_register)],
+        entry_points=[CommandHandler('register', initiate_register),
+                      MessageHandler(filters.Regex("^📝 Registrar Dia$"), initiate_register)],
         states={
             DATA: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_data)],
             CONTEUDO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_conteudo)],
@@ -41,9 +42,12 @@ if __name__ == '__main__':
             DIFICULDADES: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_dificuldades)],
             ASPECTOS_P: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_aspectos_positivos)],
             ANEXOS: [MessageHandler(filters.PHOTO | filters.Document.ALL, receber_anexos)],
+            CONFIRMACAO: [MessageHandler(
+                filters.TEXT & ~filters.COMMAND, confirmar_ou_editar)]
 
         },
-        fallbacks=[CommandHandler('cancel', cancel)],
+        fallbacks=[CommandHandler('cancel', cancel),
+                   MessageHandler(filters.Regex("^❌ Cancelar$"), cancel)],
         allow_reentry=True
     )
 
