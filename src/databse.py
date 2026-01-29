@@ -14,7 +14,7 @@ def init_db():
             data_estagio TEXT,
             horario TEXT,
             local TEXT,
-            tipo_atividade TEXT,
+            atividade TEXT,
             conteudo TEXT,
             objetivos TEXT,
             descricao TEXT,

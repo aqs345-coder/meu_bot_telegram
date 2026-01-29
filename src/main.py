@@ -41,6 +41,9 @@ if __name__ == '__main__':
             DESCRICAO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_descricao)],
             DIFICULDADES: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_dificuldades)],
             ASPECTOS_P: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_aspectos_positivos)],
+            HORARIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_horario)],
+            LOCAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_local)],
+            ATIVIDADE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_atividade)],
             ANEXOS: [MessageHandler(filters.PHOTO | filters.Document.ALL, receber_anexos)],
             CONFIRMACAO: [MessageHandler(
                 filters.TEXT & ~filters.COMMAND, confirmar_ou_editar)]

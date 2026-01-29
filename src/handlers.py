@@ -22,11 +22,11 @@ TECLADO_CANCELAR = ReplyKeyboardMarkup(
 TECLADO_CONFIRMACAO = ReplyKeyboardMarkup(
     [
         ["✅ SALVAR NO BANCO"],
-        ["📅 Editar Data", "⌚ Horário"],
+        ["📅 Data", "⌚ Horário"],
         ["📍 Local", "🏋️‍♂️ Atividade"],
         ["📝 Conteúdo", "🎯 Objetivos"],
         ["📖 Descrição", "⚠️ Dificuldades"],
-        ["✨ Aspectos", "📎 Editar Anexo"],
+        ["✨ Aspectos", "📎 Anexo"],
         ["❌ Cancelar"]
     ],
     resize_keyboard=True
@@ -47,9 +47,10 @@ async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎯 **Objetivos:** {d.get('objetivos_aula')}\n"
         f"📖 **Descrição:** {d.get('descricao')}\n"
         f"⚠️ **Dificuldades:** {d.get('dificuldades')}\n"
-        f"✨ **Positivos:** {d.get('aspectos_positivos')}\n"
+        f"✨ **Aspectos:** {d.get('aspectos_positivos')}\n"
         f"📎 **Anexo:** {status_anexo}\n\n"
-        f"O que deseja fazer?"
+        f"O que deseja fazer?\n\n"
+        f"Para alterar alguma informação, clique na opção correspondente."
     )
 
     await update.message.reply_text(
@@ -99,22 +100,34 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except ValueError:
                 continue
 
-    if data_final:
-        context.user_data['data_estagio'] = data_final
-        await update.message.reply_text(f"Data definida como: {data_final}.\n"
-                                        f"Qual foi o conteúdo trabalhado?")
-        return CONTEUDO
-
-    else:
+    if not data_final:
         await update.message.reply_text(
             "Não entendi a data. 🤔\n"
             "Por favor, digite 'hoje' ou uma data válida (ex: 27/01/2026)."
         )
         return DATA
 
+    context.user_data['data_estagio'] = data_final
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Data atualizada!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
+    await update.message.reply_text(
+        f"📝 Anotei: '{data_final}'\n\n"
+        "Agora, fale sobre os conteúdos trabalhados.\n"
+    )
+    return CONTEUDO
+
 
 async def receber_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Conteúdo atualizado!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
 
     if len(texto_usuario) < 5:
         await update.message.reply_text(
@@ -133,6 +146,11 @@ async def receber_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receber_objetivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Objetivos atualizados!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor os objetivos da aula?\n"
@@ -149,6 +167,11 @@ async def receber_objetivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Descrição atualizada!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
 
     if len(texto_usuario) < 5:
         await update.message.reply_text(
@@ -167,6 +190,11 @@ async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Dificuldades atualizadas!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor as dificuldades enfrentadas?\n"
@@ -183,6 +211,12 @@ async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
+
+    context.user_data['editando'] = True
+
+    if context.user_data.get('caminho_anexo'):
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
 
     if len(texto_usuario) < 5:
         await update.message.reply_text(
@@ -220,17 +254,36 @@ async def receber_anexos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     pasta_anexos = "anexos_estagio"
     os.makedirs(pasta_anexos, exist_ok=True)
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     nome_arquivo = f"{user.id}_{timestamp}{extensao}"
     caminho_completo = os.path.join(pasta_anexos, nome_arquivo)
-
     await arquivo.download_to_drive(caminho_completo)
 
     context.user_data['caminho_anexo'] = caminho_completo
     context.user_data['editando'] = True
 
     await update.message.reply_text("✅ Anexo recebido!")
+    await exibir_resumo(update, context)
+    return CONFIRMACAO
+
+
+async def receber_horario(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['horario'] = update.message.text
+    await update.message.reply_text("✅ Horário atualizado!")
+    await exibir_resumo(update, context)
+    return CONFIRMACAO
+
+
+async def receber_local(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['local'] = update.message.text
+    await update.message.reply_text("✅ Local atualizado!")
+    await exibir_resumo(update, context)
+    return CONFIRMACAO
+
+
+async def receber_atividade(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['atividade'] = update.message.text
+    await update.message.reply_text("✅ Atividade atualizada!")
     await exibir_resumo(update, context)
     return CONFIRMACAO
 
@@ -255,6 +308,42 @@ async def confirmar_ou_editar(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await update.message.reply_text("Opção inválida. Use o teclado abaixo.")
     return CONFIRMACAO
+
+
+async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    dados = context.user_data
+    user = update.effective_user
+
+    try:
+        conn = sqlite3.connect("registros_estagio.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO registros (
+                user_id, data_estagio,
+                horario, local, atividade,
+                conteudo, objetivos, descricao,
+                dificuldades, aspectos_positivos, caminho_anexo
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user.id, dados.get('data_estagio'),
+                dados.get('horario'), dados.get(
+                    'local'), dados.get('atividade'),
+                dados.get('conteudo_trabalhado'), dados.get(
+                    'objetivos_aula'), dados.get('descricao'),
+                dados.get('dificuldades'), dados.get(
+                    'aspectos_positivos'), dados.get('caminho_anexo')
+            )
+        )
+        conn.commit()
+        conn.close()
+
+        await update.message.reply_text("✅ Registro salvo com sucesso!", reply_markup=TECLADO_INICIAL)
+        return ConversationHandler.END
+    except Exception as e:
+        await update.message.reply_text("Erro ao salvar o registro.")
+        print(e)
+        return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
