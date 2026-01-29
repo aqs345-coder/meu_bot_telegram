@@ -1,6 +1,7 @@
 # User
 git_init.py
 registros_estagio.db
+anexos_estagio/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -2,12 +2,12 @@
 # type: ignore
 import logging
 import os
-from datetime import datetime
 
 from dotenv import load_dotenv
-from telegram.ext import (ApplicationBuilder, CommandHandler, ContextTypes,
+from telegram.ext import (ApplicationBuilder, CommandHandler,
                           ConversationHandler, MessageHandler, filters)
 
+from databse import init_db
 from handlers import *
 
 logging.basicConfig(
@@ -20,6 +20,12 @@ TOKEN = os.getenv('TOKEN')
 
 
 if __name__ == '__main__':
+    try:
+        init_db()
+        print("Banco de dados iniciado com sucesso.")
+    except Exception as e:
+        print("Banco de dados não foi iniciado com sucesso.")
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler('help', help_command))
@@ -34,7 +40,7 @@ if __name__ == '__main__':
             DESCRICAO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_descricao)],
             DIFICULDADES: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_dificuldades)],
             ASPECTOS_P: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_aspectos_positivos)],
-            ANEXOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_anexos)],
+            ANEXOS: [MessageHandler(filters.PHOTO | filters.Document.ALL, receber_anexos)],
 
         },
         fallbacks=[CommandHandler('cancel', cancel)],

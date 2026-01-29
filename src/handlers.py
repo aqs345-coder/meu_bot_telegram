@@ -175,41 +175,48 @@ async def receber_anexos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     dados = context.user_data
 
-    conn = sqlite3.connect("registros_estagio.db")
-    cursor = conn.cursor()
+    try:
+        conn = sqlite3.connect("registros_estagio.db")
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO registros (
-            user_id, 
-            data_estagio, 
-            conteudo, 
-            objetivos, 
-            descricao, 
-            dificuldades, 
-            aspectos_positivos, 
-            caminho_anexo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        user.id,
-        dados.get('data_estagio'),
-        dados.get('conteudo_trabalhado'),
-        dados.get('objetivos_aula'),
-        dados.get('descricao'),
-        dados.get('dificuldades'),
-        dados.get('aspectos_positivos'),
-        caminho_completo
-    ))
+        cursor.execute("""
+            INSERT INTO registros (
+                user_id, 
+                data_estagio, 
+                conteudo, 
+                objetivos, 
+                descricao, 
+                dificuldades, 
+                aspectos_positivos, 
+                caminho_anexo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            user.id,
+            dados.get('data_estagio'),
+            dados.get('conteudo_trabalhado'),
+            dados.get('objetivos_aula'),
+            dados.get('descricao'),
+            dados.get('dificuldades'),
+            dados.get('aspectos_positivos'),
+            caminho_completo
+        ))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
 
-    await update.message.reply_text(
-        "✅ **Registro Salvo com Sucesso!**\n\n"
-        f"{dados.items()}"
-        "Seus dados e o anexo foram guardados no sistema.\n"
-        "Até a próxima! 👋",
-        parse_mode="Markdown"
-    )
+        await update.message.reply_text(
+            "✅ **Registro Salvo com Sucesso!**\n\n"
+            f"{dados.items()}\n"
+            "Seus dados e o anexo foram guardados no sistema.\n"
+            "Até a próxima! 👋"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(
+            "❌ Erro ao salvar no banco"
+        )
+        print(f"Erro: {e}")
+        return ANEXOS
 
     context.user_data.clear()
     return ConversationHandler.END
