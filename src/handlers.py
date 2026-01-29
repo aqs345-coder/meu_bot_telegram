@@ -1,5 +1,6 @@
-# flake8: noqa: F405
-# type: ignore
+
+import os
+import sqlite3
 from datetime import datetime
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
@@ -121,7 +122,7 @@ async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data['dificuldades'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
-        "Agora, fale sobre os objetivos da aula/atividade.\n"
+        "Agora, fale sobre os aspectos positivos.\n"
     )
     return ASPECTOS_P
 
@@ -144,7 +145,74 @@ async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAU
 
 
 async def receber_anexos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
+    user = update.effective_user
+    arquivo = None
+    extensao = ""
+
+    if update.message.photo:
+        arquivo_id = update.message.photo[-1].file_id
+        arquivo = await context.bot.get_file(arquivo_id)
+        extensao = ".jpg"
+
+    elif update.message.document:
+        arquivo_id = update.message.document.file_id
+        arquivo = await context.bot.get_file(arquivo_id)
+        nome_orig = update.message.document.file_name
+        extensao = os.path.splitext(nome_orig)[1]
+
+    else:
+        await update.message.reply_text("Por favor, envie uma imagem ou um documento válido.")
+        return ANEXOS
+
+    pasta_anexos = "anexos_estagio"
+    os.makedirs(pasta_anexos, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    nome_arquivo = f"{user.id}_{timestamp}{extensao}"
+    caminho_completo = os.path.join(pasta_anexos, nome_arquivo)
+
+    await arquivo.download_to_drive(caminho_completo)
+
+    dados = context.user_data
+
+    conn = sqlite3.connect("registros_estagio.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO registros (
+            user_id, 
+            data_estagio, 
+            conteudo, 
+            objetivos, 
+            descricao, 
+            dificuldades, 
+            aspectos_positivos, 
+            caminho_anexo
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        user.id,
+        dados.get('data_estagio'),
+        dados.get('conteudo_trabalhado'),
+        dados.get('objetivos_aula'),
+        dados.get('descricao'),
+        dados.get('dificuldades'),
+        dados.get('aspectos_positivos'),
+        caminho_completo
+    ))
+
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(
+        "✅ **Registro Salvo com Sucesso!**\n\n"
+        f"{dados.items()}"
+        "Seus dados e o anexo foram guardados no sistema.\n"
+        "Até a próxima! 👋",
+        parse_mode="Markdown"
+    )
+
+    context.user_data.clear()
+    return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -153,18 +221,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "🤖 *Assistente de Diário de Bordo*\n\n"
-        "Este bot ajuda você a registrar suas atividades de estágio de forma organizada.\n\n"
-        "*Comandos disponíveis:*\n"
-        "/register - Inicia um novo registro diário.\n"
-        "/cancel - Cancela o registro que está em andamento.\n"
-        "/help - Mostra esta mensagem de ajuda.\n\n"
-        "*Como funciona:*\n"
-        "1. Digite `/register`.\n"
-        "2. Responda às perguntas sobre data, conteúdo, objetivos, etc.\n"
-        "3. Envie uma foto para finalizar o registro.\n\n"
-        "💡 *Dica:* Na hora da data, você pode apenas digitar 'hoje'!"
-    )
+    help_text = (MSG_HELP)
 
     await update.message.reply_text(help_text, parse_mode='Markdown')

@@ -29,6 +29,13 @@ if __name__ == '__main__':
         entry_points=[CommandHandler('register', initiate_register)],
         states={
             DATA: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_data)],
+            CONTEUDO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_conteudo)],
+            OBJETIVOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_objetivos)],
+            DESCRICAO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_descricao)],
+            DIFICULDADES: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_dificuldades)],
+            ASPECTOS_P: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_aspectos_positivos)],
+            ANEXOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_anexos)],
+
         },
         fallbacks=[CommandHandler('cancel', cancel)],
         allow_reentry=True
