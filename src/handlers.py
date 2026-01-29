@@ -58,6 +58,95 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return DATA
 
 
+async def receber_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto_usuario = update.message.text
+
+    if len(texto_usuario) < 5:
+        await update.message.reply_text(
+            "Que pouquinho. Vamos detalhar melhor o conteúdo trabalhado?\n"
+        )
+        return CONTEUDO
+
+    context.user_data['conteudo_trabalhado'] = texto_usuario
+    await update.message.reply_text(
+        f"📝 Anotei: '{texto_usuario}'\n\n"
+        "Agora, fale sobre os objetivos da aula/atividade.\n"
+    )
+    return OBJETIVOS
+
+
+async def receber_objetivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto_usuario = update.message.text
+
+    if len(texto_usuario) < 5:
+        await update.message.reply_text(
+            "Que pouquinho. Vamos detalhar melhor os objetivos da aula?\n"
+        )
+        return OBJETIVOS
+
+    context.user_data['objetivos_aula'] = texto_usuario
+    await update.message.reply_text(
+        f"📝 Anotei: '{texto_usuario}'\n\n"
+        "Agora, descreva as experiências.\n"
+    )
+    return DESCRICAO
+
+
+async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto_usuario = update.message.text
+
+    if len(texto_usuario) < 5:
+        await update.message.reply_text(
+            "Que pouquinho. Vamos detalhar melhor as experiências (observações, práticas, etc.)?\n"
+        )
+        return DESCRICAO
+
+    context.user_data['conteudo_trabalhado'] = texto_usuario
+    await update.message.reply_text(
+        f"📝 Anotei: '{texto_usuario}'\n\n"
+        "Agora, fale sobre as dificuldades enfrentadas.\n"
+    )
+    return DIFICULDADES
+
+
+async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto_usuario = update.message.text
+
+    if len(texto_usuario) < 5:
+        await update.message.reply_text(
+            "Que pouquinho. Vamos detalhar melhor as dificuldades enfrentadas?\n"
+        )
+        return DIFICULDADES
+
+    context.user_data['conteudo_trabalhado'] = texto_usuario
+    await update.message.reply_text(
+        f"📝 Anotei: '{texto_usuario}'\n\n"
+        "Agora, fale sobre os objetivos da aula/atividade.\n"
+    )
+    return ASPECTOS_P
+
+
+async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto_usuario = update.message.text
+
+    if len(texto_usuario) < 5:
+        await update.message.reply_text(
+            "Que pouquinho. Vamos detalhar melhor os aspectos positivos?\n"
+        )
+        return ASPECTOS_P
+
+    context.user_data['conteudo_trabalhado'] = texto_usuario
+    await update.message.reply_text(
+        f"📝 Anotei: '{texto_usuario}'\n\n"
+        f"Agora, me envie os anexos para {context.user_data['data_estagio']}.\n"
+    )
+    return ANEXOS
+
+
+async def receber_anexos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pass
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Registro cancelado.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END

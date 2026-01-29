@@ -1,7 +1,7 @@
 # flake8: noqa: E501
 # ESTADOS DA CONVERSA
-DATA, HORARIO, ATIVIDADE, CONTEUDO, OBJETIVOS, DESCRICAO, DIFICULDADES, ASPECTOS_P, ANEXOS = range(
-    9)
+DATA, HORARIO, LOCAL, ATIVIDADE, CONTEUDO, OBJETIVOS, DESCRICAO, DIFICULDADES, ASPECTOS_P, ANEXOS = range(
+    10)
 
 MSG_BOAS_VINDAS = ("👋 Olá! Eu sou o seu Assistente de Estágio.\n\n"
                    "No momento, não temos nenhum registro em andamento. "
