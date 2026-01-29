@@ -101,7 +101,7 @@ async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return DESCRICAO
 
-    context.user_data['conteudo_trabalhado'] = texto_usuario
+    context.user_data['descricao'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         "Agora, fale sobre as dificuldades enfrentadas.\n"
@@ -118,7 +118,7 @@ async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return DIFICULDADES
 
-    context.user_data['conteudo_trabalhado'] = texto_usuario
+    context.user_data['dificuldades'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         "Agora, fale sobre os objetivos da aula/atividade.\n"
@@ -135,7 +135,7 @@ async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAU
         )
         return ASPECTOS_P
 
-    context.user_data['conteudo_trabalhado'] = texto_usuario
+    context.user_data['aspectos_positivos'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         f"Agora, me envie os anexos para {context.user_data['data_estagio']}.\n"
