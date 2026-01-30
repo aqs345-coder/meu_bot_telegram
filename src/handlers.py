@@ -3,60 +3,14 @@ import os
 import sqlite3
 from datetime import datetime
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-from constants import *
-
-TECLADO_INICIAL = ReplyKeyboardMarkup(
-    [["📝 Registrar Dia"], ["📂 Ver Histórico"]],
-    resize_keyboard=True,
-    one_time_keyboard=True
-)
-
-TECLADO_CANCELAR = ReplyKeyboardMarkup(
-    [["❌ Cancelar"]],
-    resize_keyboard=True
-)
-
-TECLADO_CONFIRMACAO = ReplyKeyboardMarkup(
-    [
-        ["✅ SALVAR NO BANCO"],
-        ["📅 Data", "⌚ Horário"],
-        ["📍 Local", "🏋️‍♂️ Atividade"],
-        ["📝 Conteúdo", "🎯 Objetivos"],
-        ["📖 Descrição", "⚠️ Dificuldades"],
-        ["✨ Aspectos", "📎 Anexo"],
-        ["❌ Cancelar"]
-    ],
-    resize_keyboard=True
-)
-
-
-async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    d = context.user_data
-    status_anexo = "✅ Recebido" if d.get('caminho_anexo') else "❌ Pendente"
-
-    msg = (
-        f"📋 **REVISÃO DO REGISTRO**\n\n"
-        f"📅 **Data:** {d.get('data_estagio')}\n"
-        f"⌚ **Horário:** {d.get('horario')}\n"
-        f"📍 **Local:** {d.get('local')}\n"
-        f"🏋️‍♂️ **Atividade:** {d.get('atividade')}\n"
-        f"📝 **Conteúdo:** {d.get('conteudo_trabalhado')}\n"
-        f"🎯 **Objetivos:** {d.get('objetivos_aula')}\n"
-        f"📖 **Descrição:** {d.get('descricao')}\n"
-        f"⚠️ **Dificuldades:** {d.get('dificuldades')}\n"
-        f"✨ **Aspectos:** {d.get('aspectos_positivos')}\n"
-        f"📎 **Anexo:** {status_anexo}\n\n"
-        f"O que deseja fazer?\n\n"
-        f"Para alterar alguma informação, clique na opção correspondente."
-    )
-
-    await update.message.reply_text(
-        msg,
-        parse_mode='Markdown',
-        reply_markup=TECLADO_CONFIRMACAO)
+from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE_PADRAO, CONFIRMACAO,
+                       CONTEUDO, DATA, DESCRICAO, DIFICULDADES, HORARIO_PADRAO,
+                       LOCAL_PADRAO, MSG_BOAS_VINDAS, MSG_HELP, MSG_START,
+                       OBJETIVOS, ROTAS, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
+                       TECLADO_INICIAL)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -77,12 +31,7 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor = conn.cursor()
 
         cursor.execute(
-            """
-            SELECT id, data_estagio, conteudo
-            FROM registros
-            WHERE user_id = ?
-            ORDER BY id DESC
-            """,
+            "SELECT id, data_estagio FROM registros WHERE user_id = ? ORDER BY id DESC",
             (user_id,)
         )
 
@@ -97,24 +46,50 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        msg = "📂 **Seus Registros:**\n\n"
-
+        teclado = []
         for reg in registros:
             id_reg = reg[0]
-            data = reg[1]
-            conteudo = reg[2]
-            conteudo_curto = (
-                conteudo[:30] + '...') if len(conteudo) > 30 else conteudo
-            msg += f"🆔 **#{id_reg}** | 📅 {data}\n📝 {conteudo_curto}\n──────────────────\n"
+            data_reg = reg[1]
+            teclado.append([InlineKeyboardButton(
+                f"📅 {data_reg}", callback_data=f"Ver {id_reg}")])
 
-            await update.message.reply_text(
-                msg,
-                parse_mode='Markdown',
-                reply_markup=TECLADO_INICIAL
-            )
+        reply_markup = InlineKeyboardMarkup(teclado)
+
+        await update.message.reply_text(
+            "📂 **Seus Registros:**\nClique em uma data para ver os detalhes:",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+
     except Exception as e:
         print(f"Erro ao listar os registros: {e}")
         await update.message.reply_text(f"❌ Erro ao buscar registros.")
+
+
+async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    dados = context.user_data
+    status_anexo = "✅ Recebido" if dados.get('caminho_anexo') else "❌ Pendente"
+
+    msg = (
+        f"📋 **REVISÃO DO REGISTRO**\n\n"
+        f"📅 **Data:** {dados.get('data_estagio')}\n"
+        f"⌚ **Horário:** {dados.get('horario')}\n"
+        f"📍 **Local:** {dados.get('local')}\n"
+        f"🏋️‍♂️ **Atividade:** {dados.get('atividade')}\n"
+        f"📝 **Conteúdo:** {dados.get('conteudo_trabalhado')}\n"
+        f"🎯 **Objetivos:** {dados.get('objetivos_aula')}\n"
+        f"📖 **Descrição:** {dados.get('descricao')}\n"
+        f"⚠️ **Dificuldades:** {dados.get('dificuldades')}\n"
+        f"✨ **Aspectos:** {dados.get('aspectos_positivos')}\n"
+        f"📎 **Anexo:** {status_anexo}\n\n"
+        f"O que deseja fazer?\n\n"
+        f"Para alterar alguma informação, clique na opção correspondente."
+    )
+
+    await update.message.reply_text(
+        msg,
+        parse_mode='Markdown',
+        reply_markup=TECLADO_CONFIRMACAO)
 
 
 async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):

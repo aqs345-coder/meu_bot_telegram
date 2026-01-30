@@ -1,5 +1,6 @@
 # flake8: noqa: E501
-# ESTADOS DA CONVERSA
+from telegram import ReplyKeyboardMarkup
+
 DATA, HORARIO, LOCAL, ATIVIDADE, CONTEUDO, OBJETIVOS, DESCRICAO, DIFICULDADES, ASPECTOS_P, ANEXOS, CONFIRMACAO = range(
     11)
 
@@ -46,3 +47,27 @@ ROTAS = {
     "Aspectos":   (ASPECTOS_P, "✨ Digite os novos pontos positivos:", None),
     "Anexo":      (ANEXOS,     "📎 Envie o novo arquivo:",         None),
 }
+
+TECLADO_INICIAL = ReplyKeyboardMarkup(
+    [["📝 Registrar Dia"], ["📂 Ver Histórico"]],
+    resize_keyboard=True,
+    one_time_keyboard=True
+)
+
+TECLADO_CANCELAR = ReplyKeyboardMarkup(
+    [["❌ Cancelar"]],
+    resize_keyboard=True
+)
+
+TECLADO_CONFIRMACAO = ReplyKeyboardMarkup(
+    [
+        ["✅ SALVAR NO BANCO"],
+        ["📅 Data", "⌚ Horário"],
+        ["📍 Local", "🏋️‍♂️ Atividade"],
+        ["📝 Conteúdo", "🎯 Objetivos"],
+        ["📖 Descrição", "⚠️ Dificuldades"],
+        ["✨ Aspectos", "📎 Anexo"],
+        ["❌ Cancelar"]
+    ],
+    resize_keyboard=True
+)
