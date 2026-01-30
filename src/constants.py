@@ -23,6 +23,7 @@ MSG_START = ("🚀 *Iniciando Registro de Estágio*\n\n"
 
 MSG_RESUMO = ("📋 *Revise seus dados:*\n\n")
 
+
 MSG_HELP = ("🤖 *Assistente de Diário de Bordo*\n\n"
             "Este bot ajuda você a registrar suas atividades de estágio de forma organizada.\n\n"
             "*Comandos disponíveis:*\n"

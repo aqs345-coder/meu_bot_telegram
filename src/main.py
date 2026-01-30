@@ -4,8 +4,9 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from telegram.ext import (ApplicationBuilder, CommandHandler,
-                          ConversationHandler, MessageHandler, filters)
+from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
+                          CommandHandler, ConversationHandler, MessageHandler,
+                          filters)
 
 from databse import init_db
 from handlers import *
@@ -32,6 +33,8 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('start', start))
     app.add_handler(MessageHandler(filters.Regex(
         "^📂 Ver Histórico$"), listar_registros))
+    app.add_handler(CallbackQueryHandler(
+        exibir_detalhe_registro, pattern="^(ver_|voltar_lista)"))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('register', initiate_register),

@@ -6,11 +6,11 @@ from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE_PADRAO, CONFIRMACAO,
-                       CONTEUDO, DATA, DESCRICAO, DIFICULDADES, HORARIO_PADRAO,
-                       LOCAL_PADRAO, MSG_BOAS_VINDAS, MSG_HELP, MSG_START,
-                       OBJETIVOS, ROTAS, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
-                       TECLADO_INICIAL)
+from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE, ATIVIDADE_PADRAO,
+                       CONFIRMACAO, CONTEUDO, DATA, DESCRICAO, DIFICULDADES,
+                       HORARIO, HORARIO_PADRAO, LOCAL, LOCAL_PADRAO,
+                       MSG_BOAS_VINDAS, MSG_HELP, MSG_START, OBJETIVOS, ROTAS,
+                       TECLADO_CANCELAR, TECLADO_CONFIRMACAO, TECLADO_INICIAL)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -25,6 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
 
     try:
         conn = sqlite3.connect("registros_estagio.db")
@@ -51,19 +52,98 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
             id_reg = reg[0]
             data_reg = reg[1]
             teclado.append([InlineKeyboardButton(
-                f"📅 {data_reg}", callback_data=f"Ver {id_reg}")])
+                f"📅 {data_reg}", callback_data=f"ver_{id_reg}")])
 
         reply_markup = InlineKeyboardMarkup(teclado)
 
-        await update.message.reply_text(
-            "📂 **Seus Registros:**\nClique em uma data para ver os detalhes:",
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="📂 **Seus Registros:**\nClique em uma data para ver os detalhes:",
             parse_mode='Markdown',
             reply_markup=reply_markup
         )
 
     except Exception as e:
         print(f"Erro ao listar os registros: {e}")
-        await update.message.reply_text(f"❌ Erro ao buscar registros.")
+        await context.bot.send_message(chat_id=chat_id, text="❌ Erro ao buscar registros.")
+
+
+async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    dados_botao = query.data
+
+    if dados_botao.startswith("ver_"):
+        registro_id = dados_botao.split("_")[1]
+
+        try:
+            conn = sqlite3.connect("registros_estagio.db")
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM registros WHERE id = ?", (registro_id,))
+            registro = cursor.fetchone()
+            conn.close()
+
+            if not registro:
+                await query.edit_message_text("❌ Registro não encontrado.")
+                return
+
+            data = registro[3]
+            horario = registro[4]
+            local = registro[5]
+            atividade = registro[6]
+            conteudo = registro[7]
+            objetivos = registro[8]
+            descricao = registro[9]
+            dificuldades = registro[10]
+            positivos = registro[11]
+            caminho_anexo = registro[12]
+
+            texto_detalhe = (
+                f"📅 **DATA:** {data}\n"
+                f"⌚ **Horário:** {horario}\n"
+                f"📍 **Local:** {local}\n"
+                f"🏋️‍♂️ **Atividade:** {atividade}\n"
+                f"──────────────────\n"
+                f"📝 **Conteúdo:**\n{conteudo}\n\n"
+                f"🎯 **Objetivos:**\n{objetivos}\n\n"
+                f"📖 **Descrição:**\n{descricao}\n\n"
+                f"⚠️ **Dificuldades:**\n{dificuldades}\n\n"
+                f"✨ **Pontos Positivos:**\n{positivos}"
+            )
+
+            botoes_detalhe = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "✏️ Editar", callback_data=f"editar_{registro_id}")],
+                [InlineKeyboardButton(
+                    "🔙 Voltar para Lista", callback_data="voltar_lista")]
+            ])
+
+            if caminho_anexo and os.path.exists(caminho_anexo):
+                await query.delete_message()
+                await context.bot.send_photo(
+                    chat_id=update.effective_chat.id,
+                    photo=open(caminho_anexo, 'rb'),
+                    caption=texto_detalhe[:1024],
+                    parse_mode='Markdown',
+                    reply_markup=botoes_detalhe
+                )
+            else:
+                await query.edit_message_text(
+                    text=texto_detalhe,
+                    parse_mode='Markdown',
+                    reply_markup=botoes_detalhe
+                )
+
+        except Exception as e:
+            print(f"Erro ao exibir detalhes do registro {registro_id}: {e}")
+            await query.edit_message_text("Erro ao carregar detalhes.")
+
+    elif dados_botao == "voltar_lista":
+        print("Voltando para a lista de registros...")
+        await query.delete_message()
+        await listar_registros(update, context)
 
 
 async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
