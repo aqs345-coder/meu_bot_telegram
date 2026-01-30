@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from constants import *
 
 TECLADO_INICIAL = ReplyKeyboardMarkup(
-    [["📝 Registrar Dia"]],
+    [["📝 Registrar Dia"], ["📂 Ver Histórico"]],
     resize_keyboard=True,
     one_time_keyboard=True
 )
@@ -67,6 +67,54 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown',
         reply_markup=TECLADO_INICIAL
     )
+
+
+async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    try:
+        conn = sqlite3.connect("registros_estagio.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT id, data_estagio, conteudo
+            FROM registros
+            WHERE user_id = ?
+            ORDER BY id DESC
+            """,
+            (user_id,)
+        )
+
+        registros = cursor.fetchall()
+        conn.close()
+
+        if not registros:
+            await update.message.reply_text(
+                "📭 **Nenhum registro encontrado.**\n"
+                "Comece clicando em '📝 Registrar Dia'!",
+                parse_mode='Markdown'
+            )
+            return
+
+        msg = "📂 **Seus Registros:**\n\n"
+
+        for reg in registros:
+            id_reg = reg[0]
+            data = reg[1]
+            conteudo = reg[2]
+            conteudo_curto = (
+                conteudo[:30] + '...') if len(conteudo) > 30 else conteudo
+            msg += f"🆔 **#{id_reg}** | 📅 {data}\n📝 {conteudo_curto}\n──────────────────\n"
+
+            await update.message.reply_text(
+                msg,
+                parse_mode='Markdown',
+                reply_markup=TECLADO_INICIAL
+            )
+    except Exception as e:
+        print(f"Erro ao listar os registros: {e}")
+        await update.message.reply_text(f"❌ Erro ao buscar registros.")
 
 
 async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
