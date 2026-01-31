@@ -49,6 +49,13 @@ ROTAS = {
     "Anexo":      (ANEXOS,     "📎 Envie o novo arquivo:",         None),
 }
 
+SQL = ("""
+            INSERT INTO registros (
+                user_id, data_estagio, horario, local, tipo_atividade,
+                conteudo, objetivos, descricao, dificuldades, aspectos_positivos, caminho_anexo
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """)
+
 TECLADO_INICIAL = ReplyKeyboardMarkup(
     [["📝 Registrar Dia"], ["📂 Ver Histórico"]],
     resize_keyboard=True,

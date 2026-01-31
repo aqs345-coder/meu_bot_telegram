@@ -1,6 +1,5 @@
 
 import os
-import sqlite3
 from datetime import datetime
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -10,14 +9,23 @@ from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE, ATIVIDADE_PADRAO,
                        CONFIRMACAO, CONTEUDO, DATA, DESCRICAO, DIFICULDADES,
                        HORARIO, HORARIO_PADRAO, LOCAL, LOCAL_PADRAO,
                        MSG_BOAS_VINDAS, MSG_HELP, MSG_START, OBJETIVOS, ROTAS,
-                       TECLADO_CANCELAR, TECLADO_CONFIRMACAO, TECLADO_INICIAL)
+                       SQL, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
+                       TECLADO_INICIAL)
+from databse import get_connection
+
+
+def get_botao_cancelar():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar_registro")]
+    ])
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
-    await update.message.reply_text(
-        MSG_BOAS_VINDAS,
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=MSG_BOAS_VINDAS,
         parse_mode='Markdown',
         reply_markup=TECLADO_INICIAL
     )
@@ -28,11 +36,11 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
     try:
-        conn = sqlite3.connect("registros_estagio.db")
+        conn = get_connection()
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, data_estagio FROM registros WHERE user_id = ? ORDER BY id DESC",
+            "SELECT id, data_estagio FROM registros WHERE user_id = %s ORDER BY id DESC",
             (user_id,)
         )
 
@@ -54,13 +62,11 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
             teclado.append([InlineKeyboardButton(
                 f"📅 {data_reg}", callback_data=f"ver_{id_reg}")])
 
-        reply_markup = InlineKeyboardMarkup(teclado)
-
         await context.bot.send_message(
             chat_id=chat_id,
             text="📂 **Seus Registros:**\nClique em uma data para ver os detalhes:",
             parse_mode='Markdown',
-            reply_markup=reply_markup
+            reply_markup=InlineKeyboardMarkup(teclado)
         )
 
     except Exception as e:
@@ -72,45 +78,40 @@ async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     await query.answer()
 
-    dados_botao = query.data
+    dados = query.data
 
-    if dados_botao.startswith("ver_"):
-        registro_id = dados_botao.split("_")[1]
+    if dados == "voltar_lista":
+        await query.delete_message()
+        await listar_registros(update, context)
+        return
+
+    if dados.startswith("ver_"):
+        registro_id = dados.split("_")[1]
 
         try:
-            conn = sqlite3.connect("registros_estagio.db")
+            conn = get_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT * FROM registros WHERE id = ?", (registro_id,))
+                "SELECT * FROM registros WHERE id = %s", (registro_id,))
             registro = cursor.fetchone()
+            cursor.close()
             conn.close()
 
             if not registro:
                 await query.edit_message_text("❌ Registro não encontrado.")
                 return
 
-            data = registro[3]
-            horario = registro[4]
-            local = registro[5]
-            atividade = registro[6]
-            conteudo = registro[7]
-            objetivos = registro[8]
-            descricao = registro[9]
-            dificuldades = registro[10]
-            positivos = registro[11]
-            caminho_anexo = registro[12]
-
             texto_detalhe = (
-                f"📅 **DATA:** {data}\n"
-                f"⌚ **Horário:** {horario}\n"
-                f"📍 **Local:** {local}\n"
-                f"🏋️‍♂️ **Atividade:** {atividade}\n"
+                f"📅 **DATA:** {registro[3]}\n"
+                f"⌚ **Horário:** {registro[4]}\n"
+                f"📍 **Local:** {registro[5]}\n"
+                f"🏋️‍♂️ **Atividade:** {registro[6]}\n"
                 f"──────────────────\n"
-                f"📝 **Conteúdo:**\n{conteudo}\n\n"
-                f"🎯 **Objetivos:**\n{objetivos}\n\n"
-                f"📖 **Descrição:**\n{descricao}\n\n"
-                f"⚠️ **Dificuldades:**\n{dificuldades}\n\n"
-                f"✨ **Pontos Positivos:**\n{positivos}"
+                f"📝 **Conteúdo:**\n{registro[7]}\n\n"
+                f"🎯 **Objetivos:**\n{registro[8]}\n\n"
+                f"📖 **Descrição:**\n{registro[9]}\n\n"
+                f"⚠️ **Dificuldades:**\n{registro[10]}\n\n"
+                f"✨ **Pontos Positivos:**\n{registro[11]}"
             )
 
             botoes_detalhe = InlineKeyboardMarkup([
@@ -120,11 +121,11 @@ async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_
                     "🔙 Voltar para Lista", callback_data="voltar_lista")]
             ])
 
-            if caminho_anexo and os.path.exists(caminho_anexo):
+            if registro[12] and os.path.exists(registro[12]):
                 await query.delete_message()
                 await context.bot.send_photo(
                     chat_id=update.effective_chat.id,
-                    photo=open(caminho_anexo, 'rb'),
+                    photo=open(registro[12], 'rb'),
                     caption=texto_detalhe[:1024],
                     parse_mode='Markdown',
                     reply_markup=botoes_detalhe
@@ -139,11 +140,6 @@ async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_
         except Exception as e:
             print(f"Erro ao exibir detalhes do registro {registro_id}: {e}")
             await query.edit_message_text("Erro ao carregar detalhes.")
-
-    elif dados_botao == "voltar_lista":
-        print("Voltando para a lista de registros...")
-        await query.delete_message()
-        await listar_registros(update, context)
 
 
 async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -166,13 +162,16 @@ async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Para alterar alguma informação, clique na opção correspondente."
     )
 
-    await update.message.reply_text(
-        msg,
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=msg,
         parse_mode='Markdown',
-        reply_markup=TECLADO_CONFIRMACAO)
+        reply_markup=TECLADO_CONFIRMACAO
+    )
 
 
 async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['editando'] = False
     context.user_data['horario'] = HORARIO_PADRAO
     context.user_data['local'] = LOCAL_PADRAO
     context.user_data['atividade'] = ATIVIDADE_PADRAO
@@ -180,9 +179,22 @@ async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         MSG_START,
         parse_mode='Markdown',
-        reply_markup=TECLADO_CANCELAR
+        reply_markup=get_botao_cancelar()
     )
     return DATA
+
+
+async def cancelar_registro_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("❌ Registro cancelado.")
+    context.user_data.clear()
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Você voltou ao menu principal.",
+        reply_markup=TECLADO_INICIAL
+    )
+    return ConversationHandler.END
 
 
 async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -212,21 +224,24 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return DATA
 
     try:
-        conn = sqlite3.connect("registros_estagio.db")
+        conn = get_connection()
         cursor = conn.cursor()
 
         cursor.execute(
-            """SELECT id FROM registros WHERE user_id = ? AND data_estagio = ?""",
+            """SELECT id FROM registros WHERE user_id = %s AND data_estagio = %s""",
             (user_id, data_final)
         )
         registro_existente = cursor.fetchone()
+        cursor.close()
         conn.close()
 
         if registro_existente:
             id_conflito = registro_existente[0]
-            botao_ver = InlineKeyboardMarkup([
+            botoes = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
-                    f"🔍 Ver Registro de {data_final}", callback_data=f"ver_{id_conflito}")]
+                    f"🔍 Ver Registro de {data_final}", callback_data=f"ver_{id_conflito}")],
+                [InlineKeyboardButton(
+                    "❌ Cancelar", callback_data="cancelar_registro")]
             ])
 
             await update.message.reply_text(
@@ -237,7 +252,7 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• Clique no botão abaixo para ver/editar o registro antigo.\n"
                 f"• Ou digite uma **nova data** para continuar este cadastro.",
                 parse_mode='Markdown',
-                reply_markup=botao_ver
+                reply_markup=botoes
             )
             return DATA
 
@@ -253,7 +268,8 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"📝 Anotei: '{data_final}'\n\n"
-        "Agora, fale sobre os conteúdos trabalhados.\n"
+        "Agora, fale sobre os conteúdos trabalhados.\n",
+        reply_markup=get_botao_cancelar()
     )
     return CONTEUDO
 
@@ -275,7 +291,8 @@ async def receber_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['conteudo_trabalhado'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
-        "Agora, fale sobre os objetivos da aula/atividade.\n"
+        "Agora, fale sobre os objetivos da aula/atividade.\n",
+        reply_markup=get_botao_cancelar()
     )
     return OBJETIVOS
 
@@ -297,7 +314,8 @@ async def receber_objetivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['objetivos_aula'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
-        "Agora, descreva as experiências.\n"
+        "Agora, descreva as experiências.\n",
+        reply_markup=get_botao_cancelar()
     )
     return DESCRICAO
 
@@ -319,7 +337,8 @@ async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['descricao'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
-        "Agora, fale sobre as dificuldades enfrentadas.\n"
+        "Agora, fale sobre as dificuldades enfrentadas.\n",
+        reply_markup=get_botao_cancelar()
     )
     return DIFICULDADES
 
@@ -341,7 +360,8 @@ async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data['dificuldades'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
-        "Agora, fale sobre os aspectos positivos.\n"
+        "Agora, fale sobre os aspectos positivos.\n",
+        reply_markup=get_botao_cancelar()
     )
     return ASPECTOS_P
 
@@ -364,7 +384,8 @@ async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAU
     context.user_data['aspectos_positivos'] = texto_usuario
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
-        f"Agora, me envie os anexos para {context.user_data['data_estagio']}.\n"
+        f"Agora, me envie os anexos para {context.user_data['data_estagio']}.\n",
+        reply_markup=get_botao_cancelar()
     )
     return ANEXOS
 
@@ -436,11 +457,9 @@ async def confirmar_ou_editar(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     for palavra_chave, (estado, mensagem, campo_valor) in ROTAS.items():
         if palavra_chave in opcao:
-            if campo_valor:
-                valor_atual = dados.get(campo_valor, 'Não definido')
-                await update.message.reply_text(mensagem.format(valor_atual))
-            else:
-                await update.message.reply_text(mensagem)
+            texto = mensagem.format(
+                dados.get(campo_valor, '')) if campo_valor else mensagem
+            await update.message.reply_text(texto, reply_markup=get_botao_cancelar())
             return estado
 
     await update.message.reply_text("Opção inválida. Use o teclado abaixo.")
@@ -452,31 +471,26 @@ async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TY
     user = update.effective_user
 
     try:
-        conn = sqlite3.connect("registros_estagio.db")
+        conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO registros (
-                user_id, data_estagio,
-                horario, local, atividade,
-                conteudo, objetivos, descricao,
-                dificuldades, aspectos_positivos, caminho_anexo
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                user.id, dados.get('data_estagio'),
-                dados.get('horario'), dados.get(
-                    'local'), dados.get('atividade'),
-                dados.get('conteudo_trabalhado'), dados.get(
-                    'objetivos_aula'), dados.get('descricao'),
-                dados.get('dificuldades'), dados.get(
-                    'aspectos_positivos'), dados.get('caminho_anexo')
-            )
+
+        valores = (
+            user.id, dados.get('data_estagio'), dados.get(
+                'horario'), dados.get('local'), dados.get('atividade'),
+            dados.get('conteudo_trabalhado'), dados.get(
+                'objetivos_aula'), dados.get('descricao'),
+            dados.get('dificuldades'), dados.get(
+                'aspectos_positivos'), dados.get('caminho_anexo')
         )
+        cursor.execute(SQL, valores)
         conn.commit()
+        cursor.close()
         conn.close()
 
         await update.message.reply_text("✅ Registro salvo com sucesso!", reply_markup=TECLADO_INICIAL)
+        context.user_data.clear()
         return ConversationHandler.END
+
     except Exception as e:
         await update.message.reply_text("Erro ao salvar o registro.")
         print(e)
@@ -484,6 +498,7 @@ async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     await update.message.reply_text("Registro cancelado.", reply_markup=TECLADO_INICIAL)
     return ConversationHandler.END
 
