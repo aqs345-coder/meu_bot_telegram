@@ -187,6 +187,7 @@ async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text.strip().lower()
+    user_id = update.effective_user.id
     data_final = ""
 
     if texto_usuario in ["hoje", "hj", "today"]:
@@ -209,6 +210,39 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Por favor, digite 'hoje' ou uma data válida (ex: 27/01/2026)."
         )
         return DATA
+
+    try:
+        conn = sqlite3.connect("registros_estagio.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """SELECT id FROM registros WHERE user_id = ? AND data_estagio = ?""",
+            (user_id, data_final)
+        )
+        registro_existente = cursor.fetchone()
+        conn.close()
+
+        if registro_existente:
+            id_conflito = registro_existente[0]
+            botao_ver = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    f"🔍 Ver Registro de {data_final}", callback_data=f"ver_{id_conflito}")]
+            ])
+
+            await update.message.reply_text(
+                f"🚫 **Registro Duplicado!**\n\n"
+                f"Você já possui um registro para a data **{data_final}**.\n"
+                f"O sistema não permite dois registros no mesmo dia.\n\n"
+                f"👇 **O que você deseja fazer?**\n"
+                f"• Clique no botão abaixo para ver/editar o registro antigo.\n"
+                f"• Ou digite uma **nova data** para continuar este cadastro.",
+                parse_mode='Markdown',
+                reply_markup=botao_ver
+            )
+            return DATA
+
+    except Exception as e:
+        print(f"Erro segundo try da funcao receber_data: {e}")
 
     context.user_data['data_estagio'] = data_final
 
