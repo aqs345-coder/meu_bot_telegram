@@ -1,9 +1,11 @@
+import logging
 import os
 
 import psycopg2
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 def get_connection():
@@ -39,10 +41,11 @@ def init_db():
         conn.commit()
         cursor.close()
         conn.close()
-        print("Tabela PostgreeSQL verificada.")
+        logger.info("✅ Tabela verificada/criada no PostgreSQL.")
 
     except Exception as e:
-        print(f"Erro ao verificar tabale: {e}")
+        logger.error(
+            f"❌ Falha crítica ao conectar no Banco: {e}", exc_info=True)
 
 
 if __name__ == '__main__':

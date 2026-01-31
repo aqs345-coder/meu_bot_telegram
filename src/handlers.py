@@ -1,4 +1,5 @@
 
+import logging
 import os
 from datetime import datetime
 
@@ -9,9 +10,11 @@ from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE, ATIVIDADE_PADRAO,
                        CONFIRMACAO, CONTEUDO, DATA, DESCRICAO, DIFICULDADES,
                        HORARIO, HORARIO_PADRAO, LOCAL, LOCAL_PADRAO,
                        MSG_BOAS_VINDAS, MSG_HELP, MSG_START, OBJETIVOS, ROTAS,
-                       SQL, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
+                       SQL, SQL_UPDATE, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
                        TECLADO_INICIAL)
 from databse import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def get_botao_cancelar():
@@ -70,7 +73,10 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        print(f"Erro ao listar os registros: {e}")
+        logger.error(
+            f"Erro ao listar os registros: {e}"
+            "Função: listar_registros, Arquivo: handlers.py"
+        )
         await context.bot.send_message(chat_id=chat_id, text="❌ Erro ao buscar registros.")
 
 
@@ -138,7 +144,8 @@ async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_
                 )
 
         except Exception as e:
-            print(f"Erro ao exibir detalhes do registro {registro_id}: {e}")
+            logger.error(
+                f"Erro ao exibir detalhes do registro {registro_id}: {e}")
             await query.edit_message_text("Erro ao carregar detalhes.")
 
 
@@ -257,7 +264,7 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return DATA
 
     except Exception as e:
-        print(f"Erro segundo try da funcao receber_data: {e}")
+        logger.error(f"Erro segundo try da funcao receber_data: {e}")
 
     context.user_data['data_estagio'] = data_final
 
@@ -466,6 +473,55 @@ async def confirmar_ou_editar(update: Update, context: ContextTypes.DEFAULT_TYPE
     return CONFIRMACAO
 
 
+async def editar_registro_existente(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    id_registro = query.data.split("_")[1]
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM registros WHEREid = %s", (id_registro,))
+        registro = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not registro:
+            await query.edit_message_text("❌ Erro: Registro não encontrado.")
+            return ConversationHandler.END
+
+        # SALVAMOS O ID PARA O UPDATE DEPOIS
+        context.user_data['id_edicao'] = registro[0]
+        context.user_data['data_estagio'] = registro[3]
+        context.user_data['horario'] = registro[4]
+        context.user_data['local'] = registro[5]
+        context.user_data['atividade'] = registro[6]
+        context.user_data['conteudo_trabalhado'] = registro[7]
+        context.user_data['objetivos_aula'] = registro[8]
+        context.user_data['descricao'] = registro[9]
+        context.user_data['dificuldades'] = registro[10]
+        context.user_data['aspectos_positivos'] = registro[11]
+        context.user_data['caminho_anexo'] = registro[12]
+
+        context.user_data['editando'] = True
+
+        await query.delete_message()
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"✏️ **Editando Registro #{id_registro}**\nOs dados foram carregados. O que deseja alterar?",
+            parse_mode='Markdown'
+        )
+
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
+    except Exception as e:
+        await update.message.reply_text("Erro ao editar o registro.")
+        logger.error(e)
+        return ConversationHandler.END
+
+
 async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dados = context.user_data
     user = update.effective_user
@@ -474,15 +530,34 @@ async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TY
         conn = get_connection()
         cursor = conn.cursor()
 
-        valores = (
-            user.id, dados.get('data_estagio'), dados.get(
-                'horario'), dados.get('local'), dados.get('atividade'),
-            dados.get('conteudo_trabalhado'), dados.get(
-                'objetivos_aula'), dados.get('descricao'),
-            dados.get('dificuldades'), dados.get(
-                'aspectos_positivos'), dados.get('caminho_anexo')
-        )
-        cursor.execute(SQL, valores)
+        if 'id_edicao' in dados:
+            sql = SQL_UPDATE
+
+            valores = (
+                dados.get('data_estagio'), dados.get('horario'), dados.get(
+                    'local'), dados.get('atividade'),
+                dados.get('conteudo_trabalhado'), dados.get(
+                    'objetivos_aula'), dados.get('descricao'),
+                dados.get('dificuldades'), dados.get(
+                    'aspectos_positivos'), dados.get('caminho_anexo'),
+                # ID e User ID no final para o WHERE
+                dados.get('id_edicao'), user.id
+            )
+            msg_sucesso = f"✅ **Registro #{dados.get('id_edicao')} atualizado com sucesso!**"
+
+        else:
+            sql = SQL
+
+            valores = (
+                user.id, dados.get('data_estagio'), dados.get(
+                    'horario'), dados.get('local'), dados.get('atividade'),
+                dados.get('conteudo_trabalhado'), dados.get(
+                    'objetivos_aula'), dados.get('descricao'),
+                dados.get('dificuldades'), dados.get(
+                    'aspectos_positivos'), dados.get('caminho_anexo')
+            )
+
+        cursor.execute(sql, valores)
         conn.commit()
         cursor.close()
         conn.close()
@@ -493,7 +568,7 @@ async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TY
 
     except Exception as e:
         await update.message.reply_text("Erro ao salvar o registro.")
-        print(e)
+        logger.error(e)
         return ConversationHandler.END
 
 

@@ -24,17 +24,35 @@ MSG_START = ("🚀 *Iniciando Registro de Estágio*\n\n"
 MSG_RESUMO = ("📋 *Revise seus dados:*\n\n")
 
 
-MSG_HELP = ("🤖 *Assistente de Diário de Bordo*\n\n"
-            "Este bot ajuda você a registrar suas atividades de estágio de forma organizada.\n\n"
-            "*Comandos disponíveis:*\n"
-            "/register - Inicia um novo registro diário.\n"
-            "/cancel - Cancela o registro que está em andamento.\n"
-            "/help - Mostra esta mensagem de ajuda.\n\n"
-            "*Como funciona:*\n"
-            "1. Digite `/register`.\n"
-            "2. Responda às perguntas sobre data, conteúdo, objetivos, etc.\n"
-            "3. Envie uma foto para finalizar o registro.\n\n"
-            "💡 *Dica:* Na hora da data, você pode apenas digitar 'hoje'!")
+MSG_HELP = ("🤖 **MANUAL DO ASSISTENTE DE ESTÁGIO**\n\n"
+            "Aqui está tudo o que você pode fazer:\n\n"
+
+            "📝 **1. Criar Novo Registro**\n"
+            "• Clique em '📝 Registrar Dia' ou digite `/register`.\n"
+            "• O bot fará perguntas sequenciais (Data, Conteúdo, Objetivos...).\n"
+            "• **Regra:** Apenas 1 registro por data é permitido.\n"
+            "• Se tentar registrar uma data repetida, o bot oferecerá um atalho para ver/editar o antigo.\n\n"
+
+            "📂 **2. Histórico e Visualização**\n"
+            "• Clique em '📂 Ver Histórico' para ver seus registros salvos.\n"
+            "• Navegue clicando nos botões das datas (ex: 📅 30/01/2026).\n"
+            "• Você verá todos os detalhes, incluindo a foto/anexo.\n\n"
+
+            "✏️ **3. Editar Registros (Novo!)**\n"
+            "Errou algo? Não tem problema!\n"
+            "1. Vá em '📂 Ver Histórico'.\n"
+            "2. Clique na data desejada.\n"
+            "3. Clique no botão **'✏️ Editar'**.\n"
+            "4. Escolha exatamente qual campo quer alterar (ex: Conteúdo, Horário, Anexo).\n\n"
+
+            "❌ **4. Cancelar a qualquer momento**\n"
+            "• Em todas as perguntas, haverá um botão **'❌ Cancelar'** logo abaixo da mensagem.\n"
+            "• Clique nele para interromper o cadastro imediatamente sem salvar nada.\n\n"
+
+            "💡 **Dicas Extras:**\n"
+            "• **Datas:** Aceito formatos como `25/02/2026`, `25/02/26` ou apenas `hoje`.\n"
+            "• **Anexos:** Você pode enviar fotos ou arquivos (PDF/DOC) como comprovante.\n"
+            "• **Segurança:** Seus dados estão salvos em nuvem segura (PostgreSQL).")
 
 ROTAS = {
     "Data":       (DATA,       "📅 Qual a nova data? (Atual: {})", "data_estagio"),
@@ -56,6 +74,13 @@ SQL = ("""
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """)
 
+SQL_UPDATE = ("""
+                UPDATE registros SET
+                    data_estagio=%s, horario=%s, local=%s, tipo_atividade=%s,
+                    conteudo=%s, objetivos=%s, descricao=%s, 
+                    dificuldades=%s, aspectos_positivos=%s, caminho_anexo=%s
+                WHERE id=%s AND user_id=%s
+            """)
 TECLADO_INICIAL = ReplyKeyboardMarkup(
     [["📝 Registrar Dia"], ["📂 Ver Histórico"]],
     resize_keyboard=True,

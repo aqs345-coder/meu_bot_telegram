@@ -10,18 +10,17 @@ from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
 
 from databse import init_db
 from handlers import *
+from logger_setup import setup_logger
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO)
-
-load_dotenv()
-
-TOKEN = os.getenv('TOKEN')
+setup_logger()
+logger = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    try:
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
+   try:
         init_db()
         print("Banco de dados iniciado com sucesso.")
     except Exception as e:
@@ -38,7 +37,11 @@ if __name__ == '__main__':
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('register', initiate_register),
-                      MessageHandler(filters.Regex("^📝 Registrar Dia$"), initiate_register)],
+                      MessageHandler(filters.Regex(
+                          "^📝 Registrar Dia$"), initiate_register),
+                      CallbackQueryHandler(
+                          initiate_register, pattern="^iniciar_registro$"),
+                      CallbackQueryHandler(editar_registro_existente, pattern="^editar_")],
         states={
             DATA: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_data)],
             CONTEUDO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_conteudo)],
