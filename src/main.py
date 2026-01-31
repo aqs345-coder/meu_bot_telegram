@@ -1,5 +1,3 @@
-# flake8: noqa: E501
-# type: ignore
 import logging
 import os
 
@@ -10,8 +8,8 @@ from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
 
 from databse import init_db
 from handlers import *
-from logger_setup import setup_logger
 from keep_alive import keep_alive
+from logger_setup import setup_logger
 
 setup_logger()
 logger = logging.getLogger(__name__)
@@ -22,11 +20,12 @@ if __name__ == '__main__':
     TOKEN = os.getenv('TOKEN')
     keep_alive()
 
-   try:
+    try:
         init_db()
-        print("Banco de dados iniciado com sucesso.")
+        logger.error("Banco de dados iniciado com sucesso.")
+
     except Exception as e:
-        print("Banco de dados não foi iniciado com sucesso.")
+        logger.error(f"Banco de dados não foi iniciado com sucesso. {e}")
 
     app = ApplicationBuilder().token(TOKEN).build()
 
