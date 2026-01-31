@@ -11,6 +11,7 @@ from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
 from databse import init_db
 from handlers import *
 from logger_setup import setup_logger
+from keep_alive import keep_alive
 
 setup_logger()
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 if __name__ == '__main__':
     load_dotenv()
     TOKEN = os.getenv('TOKEN')
+    keep_alive()
 
    try:
         init_db()
