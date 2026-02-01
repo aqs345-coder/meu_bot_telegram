@@ -194,7 +194,13 @@ async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancelar_registro_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("❌ Registro cancelado.")
+
+    try:
+        await query.edit_message_text("❌ Operação cancelada pelo usuário.")
+
+    except:
+        pass
+
     context.user_data.clear()
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -482,7 +488,7 @@ async def editar_registro_existente(update: Update, context: ContextTypes.DEFAUL
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM registros WHEREid = %s", (id_registro,))
+        cursor.execute("SELECT * FROM registros WHERE id = %s", (id_registro,))
         registro = cursor.fetchone()
         cursor.close()
         conn.close()
