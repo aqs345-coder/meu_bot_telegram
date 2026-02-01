@@ -29,7 +29,7 @@ def init_db():
                 data_estagio VARCHAR(20),
                 horario VARCHAR(50),
                 local VARCHAR(100),
-                tipo_atividade VARCHAR(100),
+                atividade VARCHAR(100),
                 conteudo TEXT,
                 objetivos TEXT,
                 descricao TEXT,

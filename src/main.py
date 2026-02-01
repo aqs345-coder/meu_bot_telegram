@@ -6,7 +6,7 @@ from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
                           CommandHandler, ConversationHandler, MessageHandler,
                           filters)
 
-from databse import init_db
+from database import init_db
 from handlers import *
 from keep_alive import keep_alive
 from logger_setup import setup_logger

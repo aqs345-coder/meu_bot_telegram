@@ -12,7 +12,7 @@ from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE, ATIVIDADE_PADRAO,
                        MSG_BOAS_VINDAS, MSG_HELP, MSG_START, OBJETIVOS, ROTAS,
                        SQL, SQL_UPDATE, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
                        TECLADO_INICIAL)
-from databse import get_connection
+from database import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +159,8 @@ async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⌚ **Horário:** {dados.get('horario')}\n"
         f"📍 **Local:** {dados.get('local')}\n"
         f"🏋️‍♂️ **Atividade:** {dados.get('atividade')}\n"
-        f"📝 **Conteúdo:** {dados.get('conteudo_trabalhado')}\n"
-        f"🎯 **Objetivos:** {dados.get('objetivos_aula')}\n"
+        f"📝 **Conteúdo:** {dados.get('conteudo')}\n"
+        f"🎯 **Objetivos:** {dados.get('objetivos')}\n"
         f"📖 **Descrição:** {dados.get('descricao')}\n"
         f"⚠️ **Dificuldades:** {dados.get('dificuldades')}\n"
         f"✨ **Aspectos:** {dados.get('aspectos_positivos')}\n"
@@ -290,18 +290,19 @@ async def receber_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receber_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
-    if context.user_data.get('editando'):
-        await update.message.reply_text("✅ Conteúdo atualizado!")
-        await exibir_resumo(update, context)
-        return CONFIRMACAO
-
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor o conteúdo trabalhado?\n"
         )
         return CONTEUDO
 
-    context.user_data['conteudo_trabalhado'] = texto_usuario
+    context.user_data['conteudo'] = texto_usuario
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Conteúdo atualizado!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         "Agora, fale sobre os objetivos da aula/atividade.\n",
@@ -313,18 +314,19 @@ async def receber_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receber_objetivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
-    if context.user_data.get('editando'):
-        await update.message.reply_text("✅ Objetivos atualizados!")
-        await exibir_resumo(update, context)
-        return CONFIRMACAO
-
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor os objetivos da aula?\n"
         )
         return OBJETIVOS
 
-    context.user_data['objetivos_aula'] = texto_usuario
+    context.user_data['objetivos'] = texto_usuario
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Objetivos atualizados!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         "Agora, descreva as experiências.\n",
@@ -336,11 +338,6 @@ async def receber_objetivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
-    if context.user_data.get('editando'):
-        await update.message.reply_text("✅ Descrição atualizada!")
-        await exibir_resumo(update, context)
-        return CONFIRMACAO
-
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor as experiências (observações, práticas, etc.)?\n"
@@ -348,6 +345,12 @@ async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return DESCRICAO
 
     context.user_data['descricao'] = texto_usuario
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Descrição atualizada!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         "Agora, fale sobre as dificuldades enfrentadas.\n",
@@ -359,11 +362,6 @@ async def receber_descricao(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
-    if context.user_data.get('editando'):
-        await update.message.reply_text("✅ Dificuldades atualizadas!")
-        await exibir_resumo(update, context)
-        return CONFIRMACAO
-
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor as dificuldades enfrentadas?\n"
@@ -371,6 +369,12 @@ async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYP
         return DIFICULDADES
 
     context.user_data['dificuldades'] = texto_usuario
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Dificuldades atualizadas!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         "Agora, fale sobre os aspectos positivos.\n",
@@ -382,12 +386,6 @@ async def receber_dificuldades(update: Update, context: ContextTypes.DEFAULT_TYP
 async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_usuario = update.message.text
 
-    context.user_data['editando'] = True
-
-    if context.user_data.get('caminho_anexo'):
-        await exibir_resumo(update, context)
-        return CONFIRMACAO
-
     if len(texto_usuario) < 5:
         await update.message.reply_text(
             "Que pouquinho. Vamos detalhar melhor os aspectos positivos?\n"
@@ -395,6 +393,18 @@ async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAU
         return ASPECTOS_P
 
     context.user_data['aspectos_positivos'] = texto_usuario
+
+    if context.user_data.get('editando'):
+        await update.message.reply_text("✅ Aspectos positivos atualizados!")
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
+    context.user_data['editando'] = True
+
+    if context.user_data.get('caminho_anexo'):
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+
     await update.message.reply_text(
         f"📝 Anotei: '{texto_usuario}'\n\n"
         f"Agora, me envie os anexos para {context.user_data['data_estagio']}.\n",
@@ -503,8 +513,8 @@ async def editar_registro_existente(update: Update, context: ContextTypes.DEFAUL
         context.user_data['horario'] = registro[4]
         context.user_data['local'] = registro[5]
         context.user_data['atividade'] = registro[6]
-        context.user_data['conteudo_trabalhado'] = registro[7]
-        context.user_data['objetivos_aula'] = registro[8]
+        context.user_data['conteudo'] = registro[7]
+        context.user_data['objetivos'] = registro[8]
         context.user_data['descricao'] = registro[9]
         context.user_data['dificuldades'] = registro[10]
         context.user_data['aspectos_positivos'] = registro[11]
@@ -523,7 +533,10 @@ async def editar_registro_existente(update: Update, context: ContextTypes.DEFAUL
         return CONFIRMACAO
 
     except Exception as e:
-        await update.message.reply_text("Erro ao editar o registro.")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Ocorreu um erro ao tentar editar o registro."
+        )
         logger.error(e)
         return ConversationHandler.END
 
@@ -542,24 +555,21 @@ async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TY
             valores = (
                 dados.get('data_estagio'), dados.get('horario'), dados.get(
                     'local'), dados.get('atividade'),
-                dados.get('conteudo_trabalhado'), dados.get(
-                    'objetivos_aula'), dados.get('descricao'),
-                dados.get('dificuldades'), dados.get(
+                dados.get('conteudo'), dados.get('objetivos'),
+                dados.get('descricao'), dados.get('dificuldades'), dados.get(
                     'aspectos_positivos'), dados.get('caminho_anexo'),
                 # ID e User ID no final para o WHERE
                 dados.get('id_edicao'), user.id
             )
-            msg_sucesso = f"✅ **Registro #{dados.get('id_edicao')} atualizado com sucesso!**"
 
         else:
             sql = SQL
 
             valores = (
-                user.id, dados.get('data_estagio'), dados.get(
-                    'horario'), dados.get('local'), dados.get('atividade'),
-                dados.get('conteudo_trabalhado'), dados.get(
-                    'objetivos_aula'), dados.get('descricao'),
-                dados.get('dificuldades'), dados.get(
+                user.id, dados.get('data_estagio'), dados.get('horario'),
+                dados.get('local'), dados.get('atividade'),
+                dados.get('conteudo'), dados.get('objetivos'),
+                dados.get('descricao'), dados.get('dificuldades'), dados.get(
                     'aspectos_positivos'), dados.get('caminho_anexo')
             )
 
