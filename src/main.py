@@ -38,6 +38,10 @@ if __name__ == '__main__':
         "^📂 Ver Histórico$"), listar_registros))
     app.add_handler(CallbackQueryHandler(
         exibir_detalhe_registro, pattern="^(ver_|voltar_lista)"))
+    app.add_handler(CallbackQueryHandler(
+        solicitar_exclusao, pattern="^confexclusao_"))
+    app.add_handler(CallbackQueryHandler(
+        executar_exclusao, pattern="^deletefinal_"))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('register', initiate_register),

@@ -124,6 +124,8 @@ async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_
                 [InlineKeyboardButton(
                     "✏️ Editar", callback_data=f"editar_{registro_id}")],
                 [InlineKeyboardButton(
+                    "🗑️ Excluir Registro", callback_data=f"confexclusao_{registro_id}")],
+                [InlineKeyboardButton(
                     "🔙 Voltar para Lista", callback_data="voltar_lista")]
             ])
 
@@ -584,6 +586,80 @@ async def salvar_no_banco_final(update: Update, context: ContextTypes.DEFAULT_TY
 
     except Exception as e:
         await update.message.reply_text("Erro ao salvar o registro.")
+        logger.error(e)
+        return ConversationHandler.END
+
+
+async def solicitar_exclusao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    id_registro = query.data.split("_")[1]
+
+    botoes = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Sim, excluir", callback_data=f"deletefinal_{id_registro}"),
+         InlineKeyboardButton("❌ Não", callback_data=f"ver_{id_registro}")]
+    ])
+
+    await query.edit_message_caption(
+        caption=f"⚠️ **TEM CERTEZA?**\n\nVocê está prestes a apagar o registro **#{id_registro}**.\nEssa ação não pode ser desfeita e a foto será perdida.",
+        parse_mode='Markdown',
+        reply_markup=botoes
+    ) if query.message.photo else await query.edit_message_text(
+        text=f"⚠️ **TEM CERTEZA?**\n\nVocê está prestes a apagar o registro **#{id_registro}**.\nEssa ação não pode ser desfeita.",
+        parse_mode='Markdown',
+        reply_markup=botoes
+    )
+
+
+async def executar_exclusao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    id_registro = query.data.split("_")[1]
+    user_id = update.effective_user.id
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT caminho_anexo FROM registros WHERE id = %s AND user_id = %s", (id_registro, user_id))
+        resultado = cursor.fetchone()
+
+        if resultado:
+            caminho_anexo = resultado[0]
+            if caminho_anexo and os.path.exists(caminho_anexo):
+                try:
+                    os.remove(caminho_anexo)
+                    logger.info(f"Arquivo excluido: {caminho_anexo}")
+                except Exception as e:
+                    logger.error(
+                        f"Erro ao excluir o arquivo: {caminho_anexo}. Erro: {e}")
+
+            cursor.execute(
+                "DELETE FROM registros WHERE id = %s AND user_id = %s", (id_registro, user_id))
+            conn.commit()
+
+            await query.delete_message()
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"🗑️ **Registro #{id_registro} excluído com sucesso!**",
+                parse_mode='Markdown'
+            )
+            await listar_registros(update, context)
+
+        else:
+            await query.edit_message_teste("❌ Registro não encontrado ou sem permissão.")
+
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Ocorreu um erro ao tentar excluir o registro."
+        )
         logger.error(e)
         return ConversationHandler.END
 
