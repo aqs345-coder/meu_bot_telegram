@@ -10,11 +10,13 @@ LOCAL_PADRAO = "Armazém Fitness"
 
 ATIVIDADE_PADRAO = "Musculação"
 
-MSG_BOAS_VINDAS = ("👋 Olá! Eu sou o seu Assistente de Estágio.\n\n"
-                   "No momento, não temos nenhum registro em andamento. "
-                   "Para começar a anotar as atividades do seu estágio, envie o comando:\n\n"
+MSG_BOAS_VINDAS = ("👋 **Olá! Seja muito bem-vindo(a) ao seu Assistente de Estágio!**\n\n"
+                   "Estou aqui para facilitar sua vida e garantir que cada aprendizado da sua jornada fique bem guardado. 🚀\n\n"
+                   "✨ **Vamos começar?**\n"
+                   "Para registrar suas atividades de hoje, é só enviar:\n"
                    "▶️ /register\n\n"
-                   "Para ver os comandos e as instruções, envie o comando:\n\n"
+                   "❓ **Precisa de uma ajudinha?**\n"
+                   "Para ver instruções e dicas, envie:\n"
                    "ℹ️ /help")
 
 MSG_START = ("🚀 *Iniciando Registro de Estágio*\n\n"
