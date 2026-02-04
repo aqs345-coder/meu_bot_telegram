@@ -45,6 +45,8 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("export", menu_exportacao))
     app.add_handler(CallbackQueryHandler(
         executar_exportacao, pattern="^export_"))
+    app.add_handler(MessageHandler(filters.Regex(
+        "^💾 Exportar"), menu_exportacao))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('register', initiate_register),

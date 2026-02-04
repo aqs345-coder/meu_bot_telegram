@@ -3,11 +3,14 @@ import csv
 import io
 import logging
 import os
-import tempfile  # <--- Não esqueça de importar isso no topo do arquivo
+import tempfile
 import time
 import zipfile
 from datetime import datetime
 
+import cloudinary
+import cloudinary.uploader
+import requests
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
@@ -20,6 +23,13 @@ from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE, ATIVIDADE_PADRAO,
 from database import get_connection
 
 logger = logging.getLogger(__name__)
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 
 def get_botao_cancelar():
@@ -210,18 +220,14 @@ async def menu_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# Mantenha os outros imports (os, zipfile, csv, io, etc.)
-
-
-# Mantenha os outros imports (os, zipfile, csv, io, etc.)
-
-
 async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     tipo = query.data
     user_id = update.effective_user.id
 
-    await query.answer("Gerando arquivos... Aguarde.")
+    import asyncio
+
+    await query.answer("Gerando arquivos...")
     await query.edit_message_text("⏳ **Processando seus dados...**\nIsso pode levar alguns segundos.")
 
     try:
@@ -230,8 +236,8 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
         cursor.execute(
             "SELECT id, data_estagio, horario, local, tipo_atividade, conteudo, "
             "objetivos, descricao, dificuldades, aspectos_positivos, caminho_anexo "
-            "FROM registros WHERE user_id = %s ORDER BY data_estagio DESC", (
-                user_id,)
+            "FROM registros WHERE user_id = %s ORDER BY data_estagio DESC",
+            (user_id,)
         )
         registros = cursor.fetchall()
         cursor.close()
@@ -248,9 +254,29 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
         writer.writerow(['ID', 'Data', 'Horário', 'Local', 'Atividade', 'Conteúdo',
                          'Objetivos', 'Descrição', 'Dificuldades', 'Positivos', 'Nome do Arquivo'])
 
+        lista_arquivos_para_zip = []
+
         for reg in registros:
-            nome_anexo = os.path.basename(reg[10]) if reg[10] else ""
-            writer.writerow(list(reg[:-1]) + [nome_anexo])
+            data_estagio = reg[1]
+            caminho_original = reg[10]
+
+            novo_nome_anexo = ""
+            if caminho_original:
+                str_data = str(data_estagio)
+                extensao = ".jpg"
+                if str(caminho_original).lower().endswith(".png"):
+                    extensao = ".png"
+                elif str(caminho_original).lower().endswith(".pdf"):
+                    extensao = ".pdf"
+
+                novo_nome_anexo = f"anexo_{str_data}{extensao}"
+
+            lista_arquivos_para_zip.append({
+                'caminho': caminho_original,
+                'nome_final': novo_nome_anexo
+            })
+
+            writer.writerow(list(reg[:-1]) + [novo_nome_anexo])
 
         csv_bytes = output_csv.getvalue().encode('utf-8-sig')
         output_csv.close()
@@ -263,54 +289,69 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=arquivo_final,
-                caption="📊 Aqui está sua planilha."
+                caption="📊 **Aqui está sua planilha.**"
             )
+            await query.delete_message()
+            return
 
         elif tipo == "export_zip":
-            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_zip:
-                caminho_fisico_zip = temp_zip.name
 
-            with zipfile.ZipFile(caminho_fisico_zip, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-
-                info_csv = zipfile.ZipInfo(f"Diario_Bordo_{timestamp}.csv")
-                info_csv.date_time = time.localtime(time.time())[:6]
-                info_csv.compress_type = zipfile.ZIP_DEFLATED
-                info_csv.external_attr = 0o100644 << 16
-                zip_file.writestr(info_csv, csv_bytes)
-
-                for reg in registros:
-                    caminho_foto = reg[10]
-
-                    if caminho_foto and os.path.exists(caminho_foto):
-                        nome_arquivo = os.path.basename(caminho_foto)
-                        try:
-                            with open(caminho_foto, 'rb') as f:
-                                dados_foto = f.read()
-
-                            info_foto = zipfile.ZipInfo(nome_arquivo)
-                            info_foto.date_time = time.localtime(time.time())[
-                                :6]
-                            info_foto.compress_type = zipfile.ZIP_DEFLATED
-                            info_foto.external_attr = 0o100644 << 16
-
-                            zip_file.writestr(info_foto, dados_foto)
-                        except Exception as e:
-                            logger.error(
-                                f"Erro ao ler foto {nome_arquivo}: {e}")
+            f_temp = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+            caminho_fisico_zip = f_temp.name
+            f_temp.close()
 
             try:
+                with zipfile.ZipFile(caminho_fisico_zip, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+
+                    info_csv = zipfile.ZipInfo(f"Diario_Bordo_{timestamp}.csv")
+                    info_csv.date_time = time.localtime(time.time())[:6]
+                    info_csv.compress_type = zipfile.ZIP_DEFLATED
+                    info_csv.external_attr = 0o100644 << 16
+                    zip_file.writestr(info_csv, csv_bytes)
+
+                    for item in lista_arquivos_para_zip:
+                        caminho_original = item['caminho']
+                        nome_final = item['nome_final']
+
+                        if caminho_original and nome_final:
+                            try:
+                                dados_foto = None
+                                if caminho_original.startswith("http"):
+                                    r = requests.get(caminho_original)
+                                    if r.status_code == 200:
+                                        dados_foto = r.content
+                                elif os.path.exists(caminho_original):
+                                    with open(caminho_original, 'rb') as f:
+                                        dados_foto = f.read()
+
+                                if dados_foto:
+                                    info_foto = zipfile.ZipInfo(nome_final)
+                                    info_foto.date_time = time.localtime(time.time())[
+                                        :6]
+                                    info_foto.compress_type = zipfile.ZIP_DEFLATED
+                                    info_foto.external_attr = 0o100644 << 16
+                                    zip_file.writestr(info_foto, dados_foto)
+                            except Exception as e:
+                                logger.error(f"Erro foto {nome_final}: {e}")
+
                 with open(caminho_fisico_zip, 'rb') as arquivo_pronto:
                     await context.bot.send_document(
                         chat_id=update.effective_chat.id,
                         document=arquivo_pronto,
                         filename=f"Backup_Completo_{timestamp}.zip",
-                        caption="📦 Aqui está seu backup completo (Planilha + Fotos)."
+                        caption="📦 Aqui está seu backup completo."
                     )
-            finally:
-                if os.path.exists(caminho_fisico_zip):
-                    os.remove(caminho_fisico_zip)
 
-        await query.delete_message()
+            finally:
+                await asyncio.sleep(1)
+
+                if os.path.exists(caminho_fisico_zip):
+                    try:
+                        os.remove(caminho_fisico_zip)
+                    except Exception as e:
+                        logger.error(f"Erro ao limpar temp: {e}")
+
+            await query.delete_message()
 
     except Exception as e:
         logger.error(f"Erro ao gerar backup: {e}", exc_info=True)
@@ -557,38 +598,42 @@ async def receber_aspectos_positivos(update: Update, context: ContextTypes.DEFAU
 
 
 async def receber_anexos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
     arquivo = None
-    extensao = ""
 
     if update.message.photo:
-        arquivo_id = update.message.photo[-1].file_id
-        arquivo = await context.bot.get_file(arquivo_id)
-        extensao = ".jpg"
+        arquivo = await update.message.photo[-1].get_file()
 
     elif update.message.document:
-        arquivo_id = update.message.document.file_id
-        arquivo = await context.bot.get_file(arquivo_id)
-        nome_orig = update.message.document.file_name
-        extensao = os.path.splitext(nome_orig)[1]
-
+        arquivo = await update.message.document.get_file()
     else:
         await update.message.reply_text("Por favor, envie uma imagem ou um documento válido.")
         return ANEXOS
 
-    pasta_anexos = "anexos_estagio"
-    os.makedirs(pasta_anexos, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_arquivo = f"{user.id}_{timestamp}{extensao}"
-    caminho_completo = os.path.join(pasta_anexos, nome_arquivo)
-    await arquivo.download_to_drive(caminho_completo)
+    try:
+        await update.message.reply_chat_action("upload_photo")
 
-    context.user_data['caminho_anexo'] = caminho_completo
-    context.user_data['editando'] = True
+        f_memoria = io.BytesIO()
+        await arquivo.download_to_memory(f_memoria)
+        f_memoria.seek(0)
 
-    await update.message.reply_text("✅ Anexo recebido!")
-    await exibir_resumo(update, context)
-    return CONFIRMACAO
+        upload_result = cloudinary.uploader.upload(
+            f_memoria,
+            folder="diario_bordo_bot",
+            resource_type="auto"
+        )
+
+        url_imagem = upload_result['secure_url']
+        context.user_data['caminho_anexo'] = url_imagem
+
+        await update.message.reply_text(
+            "✅ **Foto salva na nuvem!**\n\nAgora, confira o resumo e confirme o registro.",
+            parse_mode='Markdown'
+        )
+        await exibir_resumo(update, context)
+        return CONFIRMACAO
+    except Exception as e:
+        await update.message.reply_text(f"Erro ao enviar o anexo: {e}")
+        return ANEXOS
 
 
 async def receber_horario(update: Update, context: ContextTypes.DEFAULT_TYPE):

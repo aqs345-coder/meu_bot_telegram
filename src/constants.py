@@ -88,7 +88,7 @@ SQL_UPDATE = ("""
                 WHERE id=%s AND user_id=%s
             """)
 TECLADO_INICIAL = ReplyKeyboardMarkup(
-    [["📝 Registrar Dia"], ["📂 Ver Histórico"]],
+    [["📝 Registrar Dia"], ["📂 Ver Histórico"], ["💾 Exportar"]],
     resize_keyboard=True,
     one_time_keyboard=True
 )
