@@ -51,6 +51,10 @@ MSG_HELP = ("🤖 **MANUAL DO ASSISTENTE DE ESTÁGIO**\n\n"
             "• Em todas as perguntas, haverá um botão **'❌ Cancelar'** logo abaixo da mensagem.\n"
             "• Clique nele para interromper o cadastro imediatamente sem salvar nada.\n\n"
 
+            "💾 **5. Exportar Dados (Novo!)**\n"
+            "• Digite `/export` para baixar todos os seus dados.\n"
+            "• Você pode escolher entre apenas planilha (Excel) ou backup completo com fotos.\n\n"
+
             "💡 **Dicas Extras:**\n"
             "• **Datas:** Aceito formatos como `25/02/2026`, `25/02/26` ou apenas `hoje`.\n"
             "• **Anexos:** Você pode enviar fotos ou arquivos (PDF/DOC) como comprovante.\n"

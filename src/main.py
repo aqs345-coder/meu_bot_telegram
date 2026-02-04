@@ -42,6 +42,9 @@ if __name__ == '__main__':
         solicitar_exclusao, pattern="^confexclusao_"))
     app.add_handler(CallbackQueryHandler(
         executar_exclusao, pattern="^deletefinal_"))
+    app.add_handler(CommandHandler("export", menu_exportacao))
+    app.add_handler(CallbackQueryHandler(
+        executar_exportacao, pattern="^export_"))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('register', initiate_register),

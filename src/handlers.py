@@ -1,6 +1,11 @@
 
+import csv
+import io
 import logging
 import os
+import tempfile  # <--- Não esqueça de importar isso no topo do arquivo
+import time
+import zipfile
 from datetime import datetime
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -177,6 +182,142 @@ async def exibir_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown',
         reply_markup=TECLADO_CONFIRMACAO
     )
+
+
+async def menu_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.callback_query:
+        await update.callback_query.answer()
+        msg_func = update.callback_query.message.reply_text
+    else:
+        msg_func = update.message.reply_text
+
+    teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📊 Apenas Planilha (CSV)",
+                              callback_data="export_csv")],
+        [InlineKeyboardButton("📦 Completo (Planilha + Fotos)",
+                              callback_data="export_zip")],
+        [InlineKeyboardButton("❌ Cancelar",
+                              callback_data="cancelar_registro")],
+    ])
+
+    await msg_func(
+        "💾 **BACKUP DE DADOS**\n\n"
+        "Escolha como deseja baixar seus registros:\n\n"
+        "• **Planilha:** Gera um arquivo `.csv` compatível com Excel.\n"
+        "• **Completo:** Gera um `.zip` com a planilha e todas as fotos organizadas.",
+        reply_markup=teclado,
+        parse_mode='Markdown'
+    )
+
+
+# Mantenha os outros imports (os, zipfile, csv, io, etc.)
+
+
+# Mantenha os outros imports (os, zipfile, csv, io, etc.)
+
+
+async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    tipo = query.data
+    user_id = update.effective_user.id
+
+    await query.answer("Gerando arquivos... Aguarde.")
+    await query.edit_message_text("⏳ **Processando seus dados...**\nIsso pode levar alguns segundos.")
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, data_estagio, horario, local, tipo_atividade, conteudo, "
+            "objetivos, descricao, dificuldades, aspectos_positivos, caminho_anexo "
+            "FROM registros WHERE user_id = %s ORDER BY data_estagio DESC", (
+                user_id,)
+        )
+        registros = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not registros:
+            await query.edit_message_text("❌ Você ainda não possui registros para exportar.")
+            return
+
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+
+        output_csv = io.StringIO()
+        writer = csv.writer(output_csv, delimiter=';')
+        writer.writerow(['ID', 'Data', 'Horário', 'Local', 'Atividade', 'Conteúdo',
+                         'Objetivos', 'Descrição', 'Dificuldades', 'Positivos', 'Nome do Arquivo'])
+
+        for reg in registros:
+            nome_anexo = os.path.basename(reg[10]) if reg[10] else ""
+            writer.writerow(list(reg[:-1]) + [nome_anexo])
+
+        csv_bytes = output_csv.getvalue().encode('utf-8-sig')
+        output_csv.close()
+
+        if tipo == "export_csv":
+            arquivo_final = io.BytesIO(csv_bytes)
+            arquivo_final.name = f"Diario_Bordo_{timestamp}.csv"
+            arquivo_final.seek(0)
+
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document=arquivo_final,
+                caption="📊 Aqui está sua planilha."
+            )
+
+        elif tipo == "export_zip":
+            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_zip:
+                caminho_fisico_zip = temp_zip.name
+
+            with zipfile.ZipFile(caminho_fisico_zip, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+
+                info_csv = zipfile.ZipInfo(f"Diario_Bordo_{timestamp}.csv")
+                info_csv.date_time = time.localtime(time.time())[:6]
+                info_csv.compress_type = zipfile.ZIP_DEFLATED
+                info_csv.external_attr = 0o100644 << 16
+                zip_file.writestr(info_csv, csv_bytes)
+
+                for reg in registros:
+                    caminho_foto = reg[10]
+
+                    if caminho_foto and os.path.exists(caminho_foto):
+                        nome_arquivo = os.path.basename(caminho_foto)
+                        try:
+                            with open(caminho_foto, 'rb') as f:
+                                dados_foto = f.read()
+
+                            info_foto = zipfile.ZipInfo(nome_arquivo)
+                            info_foto.date_time = time.localtime(time.time())[
+                                :6]
+                            info_foto.compress_type = zipfile.ZIP_DEFLATED
+                            info_foto.external_attr = 0o100644 << 16
+
+                            zip_file.writestr(info_foto, dados_foto)
+                        except Exception as e:
+                            logger.error(
+                                f"Erro ao ler foto {nome_arquivo}: {e}")
+
+            try:
+                with open(caminho_fisico_zip, 'rb') as arquivo_pronto:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=arquivo_pronto,
+                        filename=f"Backup_Completo_{timestamp}.zip",
+                        caption="📦 Aqui está seu backup completo (Planilha + Fotos)."
+                    )
+            finally:
+                if os.path.exists(caminho_fisico_zip):
+                    os.remove(caminho_fisico_zip)
+
+        await query.delete_message()
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar backup: {e}", exc_info=True)
+        try:
+            await query.edit_message_text("❌ Ocorreu um erro ao gerar o arquivo de backup.")
+        except:
+            pass
 
 
 async def initiate_register(update: Update, context: ContextTypes.DEFAULT_TYPE):

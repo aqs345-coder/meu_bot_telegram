@@ -2,6 +2,7 @@
 git_init.py
 registros_estagio.db
 anexos_estagio/
+Backup_Completo_Diario_Bordo_*.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
