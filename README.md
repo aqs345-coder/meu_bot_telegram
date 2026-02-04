@@ -2,16 +2,8 @@
 
 Este é um bot de Telegram avançado, desenvolvido em **Python**, projetado para gerenciar o ciclo de vida completo de registros de estágio. Diferente de bots simples de resposta automática, este projeto implementa uma **Máquina de Estados Finita** para guiar o usuário, persistência de dados em nuvem via **PostgreSQL** e uma interface interativa baseada em botões (Inline Keyboards).
 
-![Trecho do módulo principal]
-
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/b6a0edb2-0a67-4c04-9f46-3318e9c71b42" width="600" alt="Demonstração do Bot">
-</p>
-
-![Trecho do conversa inicial]
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/65fa5297-1b93-466f-982e-e47372e595b9" width="600" alt="Demonstração do Bot">
+  <img src="https://github.com/user-attachments/assets/547bc358-5f5a-4f48-a1e9-2696a1b609af" width="600" alt="Demonstração do Bot">
 </p>
 
 ## 🚀 Objetivo
