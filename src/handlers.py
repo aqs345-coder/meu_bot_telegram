@@ -144,15 +144,27 @@ async def exibir_detalhe_registro(update: Update, context: ContextTypes.DEFAULT_
                     "🔙 Voltar para Lista", callback_data="voltar_lista")]
             ])
 
-            if registro[12] and os.path.exists(registro[12]):
+            if registro[12]:
                 await query.delete_message()
-                await context.bot.send_photo(
-                    chat_id=update.effective_chat.id,
-                    photo=open(registro[12], 'rb'),
-                    caption=texto_detalhe[:1024],
-                    parse_mode='Markdown',
-                    reply_markup=botoes_detalhe
-                )
+                caminho_url = registro[12]
+
+                try:
+                    await context.bot.send_photo(
+                        chat_id=update.effective_chat.id,
+                        photo=caminho_url,
+                        caption=texto_detalhe[:1024],
+                        parse_mode='Markdown',
+                        reply_markup=botoes_detalhe
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Erro ao exibir detalhes do registro {registro_id}: {e}"
+                    )
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f"⚠️ Não foi possível carregar a imagem.\n\n{texto_detalhe[:4000]}",
+                        reply_markup=botoes_detalhe
+                    )
             else:
                 await query.edit_message_text(
                     text=texto_detalhe,
