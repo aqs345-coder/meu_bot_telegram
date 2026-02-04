@@ -289,7 +289,8 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=arquivo_final,
-                caption="📊 **Aqui está sua planilha.**"
+                caption="📊 **Aqui está sua planilha.**",
+                parse_mode='Markdown'
             )
             await query.delete_message()
             return
