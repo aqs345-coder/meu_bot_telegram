@@ -4,6 +4,8 @@ registros_estagio.db
 anexos_estagio/
 Backup_Completo_Diario_Bordo_*.zip
 formatar_docx*
+backup
+backup/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
