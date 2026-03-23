@@ -49,6 +49,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+def calcular_minutos_trabalhados(horario_str):
+    """Lê uma string no formato '08:00 às 12:00' e retorna o total de minutos."""
+    try:
+        # Separa a string em duas partes usando o " às " como divisor
+        inicio_str, fim_str = horario_str.split(' às ')
+
+        formato = "%H:%M"
+        inicio = datetime.strptime(inicio_str.strip(), formato)
+        fim = datetime.strptime(fim_str.strip(), formato)
+
+        diferenca = fim - inicio
+
+        # Retorna o valor em minutos
+        return diferenca.total_seconds() / 60
+    except Exception as e:
+        # Se o formato estiver errado (ex: usuário digitou errado no registro), ignora e soma 0
+        logger.error(f"Erro ao calcular minutos trabalhados: {horario_str}. Erro: {e}")  # noqa: E501 f"Erro na função calcular_minutos {e}"
+        return 0
+
+
 async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -58,7 +78,7 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, data_estagio FROM registros WHERE user_id = %s ORDER BY id DESC",
+            "SELECT id, data_estagio, horario FROM registros WHERE user_id = %s ORDER BY id DESC",
             (user_id,)
         )
 
@@ -68,21 +88,34 @@ async def listar_registros(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not registros:
             await update.message.reply_text(
                 "📭 **Nenhum registro encontrado.**\n"
-                "Comece clicando em '📝 Registrar Dia'!",
+                "Comece registrando o seu primeiro dia!",
                 parse_mode='Markdown'
             )
             return
 
         teclado = []
+        minutos_totais = 0
         for reg in registros:
             id_reg = reg[0]
             data_reg = reg[1]
+            horario_reg = reg[2]
+            if horario_reg:
+                minutos_totais += calcular_minutos_trabalhados(horario_reg)
             teclado.append([InlineKeyboardButton(
                 f"📅 {data_reg}", callback_data=f"ver_{id_reg}")])
 
+        # 4. Transformamos o total de minutos de volta para o formato de Horas:Minutos
+        horas_finais = int(minutos_totais // 60)
+        minutos_finais = int(minutos_totais % 60)
+
+        # Formata para sempre ter dois dígitos (ex: 08:05 em vez de 8:5)
+        horas_totais_str = f"{horas_finais:02d}:{minutos_finais:02d}"
         await context.bot.send_message(
             chat_id=chat_id,
-            text="📂 **Seus Registros:**\nClique em uma data para ver os detalhes:",
+            text=(
+                f"📂 **Seus Registros:**\n"
+                f"⏱️ Horas totais: {horas_totais_str}\n"
+                f"Clique em uma data para ver os detalhes:\n"),
             parse_mode='Markdown',
             reply_markup=InlineKeyboardMarkup(teclado)
         )
