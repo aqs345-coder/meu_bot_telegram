@@ -1,4 +1,5 @@
 
+import asyncio
 import csv
 import io
 import logging
@@ -11,15 +12,36 @@ from datetime import datetime
 import cloudinary
 import cloudinary.uploader
 import requests
+from docx.shared import Mm
+from docxtpl import DocxTemplate, InlineImage
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-from constants import (ANEXOS, ASPECTOS_P, ATIVIDADE, ATIVIDADE_PADRAO,
-                       CONFIRMACAO, CONTEUDO, DATA, DESCRICAO, DIFICULDADES,
-                       HORARIO, HORARIO_PADRAO, LOCAL, LOCAL_PADRAO,
-                       MSG_BOAS_VINDAS, MSG_HELP, MSG_START, OBJETIVOS, ROTAS,
-                       SQL, SQL_UPDATE, TECLADO_CANCELAR, TECLADO_CONFIRMACAO,
-                       TECLADO_INICIAL)
+from constants import (
+    ANEXOS,
+    ASPECTOS_P,
+    ATIVIDADE,
+    ATIVIDADE_PADRAO,
+    CONFIRMACAO,
+    CONTEUDO,
+    DATA,
+    DESCRICAO,
+    DIFICULDADES,
+    HORARIO,
+    HORARIO_PADRAO,
+    LOCAL,
+    LOCAL_PADRAO,
+    MSG_BOAS_VINDAS,
+    MSG_HELP,
+    MSG_START,
+    OBJETIVOS,
+    ROTAS,
+    SQL,
+    SQL_UPDATE,
+    TECLADO_CANCELAR,
+    TECLADO_CONFIRMACAO,
+    TECLADO_INICIAL,
+)
 from database import get_connection
 
 logger = logging.getLogger(__name__)
@@ -251,6 +273,8 @@ async def menu_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
                               callback_data="export_csv")],
         [InlineKeyboardButton("📦 Completo (Planilha + Fotos)",
                               callback_data="export_zip")],
+        [InlineKeyboardButton("📄 Relatório Padrão",
+                              callback_data="export_doc")],
         [InlineKeyboardButton("❌ Cancelar",
                               callback_data="cancelar_registro")],
     ])
@@ -259,10 +283,31 @@ async def menu_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💾 **BACKUP DE DADOS**\n\n"
         "Escolha como deseja baixar seus registros:\n\n"
         "• **Planilha:** Gera um arquivo `.csv` compatível com Excel.\n"
-        "• **Completo:** Gera um `.zip` com a planilha e todas as fotos organizadas.",
+        "• **Completo:** Gera um `.zip` com a planilha e todas as fotos organizadas.\n"
+        "• **Relatório:** Gera um documento padrão preenchido com os seus registros.\n",
         reply_markup=teclado,
         parse_mode='Markdown'
     )
+
+
+# Coloque esta função auxiliar fora da sua função principal (pode ser logo acima dela)
+# 1. Adicionamos o semáforo na função de download
+async def baixar_imagem_async(url, semaforo):
+    """Baixa a imagem limitando a concorrência para poupar a RAM do Render."""
+    if not url or not str(url).startswith("http"):
+        return url, None
+
+    # O semáforo segura a execução se já tiverem 5 fotos baixando ao mesmo tempo
+    async with semaforo:
+        try:
+            resposta = await asyncio.to_thread(requests.get, url, timeout=15)
+            if resposta.status_code == 200:
+                return url, resposta.content
+        except Exception as e:
+            logger.error(f"Erro ao baixar {url}: {e}")
+        return url, None
+
+# Sua função principal otimizada
 
 
 async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -270,7 +315,10 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
     tipo = query.data
     user_id = update.effective_user.id
 
-    import asyncio
+    # Imports específicos do Docx (o ideal é estarem no topo do arquivo)
+    if tipo == 'export_doc':
+        from docx.shared import Mm
+        from docxtpl import DocxTemplate, InlineImage
 
     await query.answer("Gerando arquivos...")
     await query.edit_message_text("⏳ **Processando seus dados...**\nIsso pode levar alguns segundos.")
@@ -294,6 +342,22 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         timestamp = datetime.now().strftime("%Y-%m-%d")
 
+        # =========================================================
+        # OTIMIZAÇÃO 1: DOWNLOAD CONCORRENTE DAS IMAGENS
+        # =========================================================
+        urls_para_baixar = {reg[10] for reg in registros if reg[10] and str(
+            reg[10]).startswith("http")}
+
+        # Cria as tarefas para baixar tudo ao mesmo tempo
+        tarefas = [baixar_imagem_async(url) for url in urls_para_baixar]
+
+        # Espera todas terminarem e guarda em um dicionário {url: bytes_da_foto}
+        # Se você tiver 10 fotos, isso levará o tempo de baixar 1 foto (a mais pesada), e não a soma das 10.
+        imagens_baixadas = dict(await asyncio.gather(*tarefas))
+
+        # =========================================================
+        # GERAÇÃO DO CSV BASE (Sempre necessário para ZIP e CSV)
+        # =========================================================
         output_csv = io.StringIO()
         writer = csv.writer(output_csv, delimiter=';')
         writer.writerow(['ID', 'Data', 'Horário', 'Local', 'Atividade', 'Conteúdo',
@@ -304,10 +368,11 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
         for reg in registros:
             data_estagio = reg[1]
             caminho_original = reg[10]
-
             novo_nome_anexo = ""
+
             if caminho_original:
-                str_data = str(data_estagio)
+                str_data = str(data_estagio).replace(
+                    "/", "-")  # Evita erro de pastas no zip
                 extensao = ".jpg"
                 if str(caminho_original).lower().endswith(".png"):
                     extensao = ".png"
@@ -316,93 +381,93 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
 
                 novo_nome_anexo = f"anexo_{str_data}{extensao}"
 
-            lista_arquivos_para_zip.append({
-                'caminho': caminho_original,
-                'nome_final': novo_nome_anexo
-            })
+                lista_arquivos_para_zip.append({
+                    'caminho_original': caminho_original,
+                    'nome_final': novo_nome_anexo
+                })
 
             writer.writerow(list(reg[:-1]) + [novo_nome_anexo])
 
         csv_bytes = output_csv.getvalue().encode('utf-8-sig')
         output_csv.close()
 
-        if tipo == "export_csv":
+        # =========================================================
+        # ROTEAMENTO E EXPORTAÇÃO
+        # =========================================================
+        if tipo == 'export_doc':
+            doc = DocxTemplate("template_estagio.docx")
+            dados_relatorio = []
+
+            for reg in registros:
+                caminho_original = reg[10]
+                imagem_injetada = "📎 Sem anexo"
+
+                if caminho_original and str(caminho_original).startswith("http"):
+                    bytes_foto = imagens_baixadas.get(caminho_original)
+                    if bytes_foto:
+                        stream_imagem = io.BytesIO(bytes_foto)
+                        imagem_injetada = InlineImage(
+                            doc, image_descriptor=stream_imagem, width=Mm(150))
+                    else:
+                        imagem_injetada = "❌ Imagem indisponível ou erro no download."
+
+                dados_relatorio.append({
+                    'data_estagio': reg[1], 'horario': reg[2], 'local': reg[3],
+                    'tipo_atividade': reg[4], 'conteudo': reg[5], 'objetivos': reg[6],
+                    'descricao': reg[7], 'dificuldades': reg[8], 'aspectos_positivos': reg[9],
+                    'caminho_anexo': imagem_injetada
+                })
+
+            doc.render({'registros': dados_relatorio})
+
+            arquivo_final_docx = io.BytesIO()
+            doc.save(arquivo_final_docx)
+            arquivo_final_docx.name = f"Diario_Bordo_{timestamp}.docx"
+            arquivo_final_docx.seek(0)
+
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id, document=arquivo_final_docx,
+                caption="📄 **Aqui está o seu relatório formatado com sucesso!**", parse_mode='Markdown'
+            )
+
+        elif tipo == "export_csv":
             arquivo_final = io.BytesIO(csv_bytes)
             arquivo_final.name = f"Diario_Bordo_{timestamp}.csv"
             arquivo_final.seek(0)
 
             await context.bot.send_document(
-                chat_id=update.effective_chat.id,
-                document=arquivo_final,
-                caption="📊 **Aqui está sua planilha.**",
-                parse_mode='Markdown'
+                chat_id=update.effective_chat.id, document=arquivo_final,
+                caption="📊 **Aqui está sua planilha.**", parse_mode='Markdown'
             )
-            await query.delete_message()
-            return
 
         elif tipo == "export_zip":
+            # OTIMIZAÇÃO 2: ZipFile em memória RAM ao invés de tempfile
+            zip_buffer = io.BytesIO()
 
-            f_temp = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-            caminho_fisico_zip = f_temp.name
-            f_temp.close()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Adiciona o CSV
+                zip_file.writestr(f"Diario_Bordo_{timestamp}.csv", csv_bytes)
 
-            try:
-                with zipfile.ZipFile(caminho_fisico_zip, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Adiciona as imagens que já estão na RAM
+                for item in lista_arquivos_para_zip:
+                    bytes_foto = imagens_baixadas.get(item['caminho_original'])
+                    if bytes_foto:
+                        zip_file.writestr(item['nome_final'], bytes_foto)
 
-                    info_csv = zipfile.ZipInfo(f"Diario_Bordo_{timestamp}.csv")
-                    info_csv.date_time = time.localtime(time.time())[:6]
-                    info_csv.compress_type = zipfile.ZIP_DEFLATED
-                    info_csv.external_attr = 0o100644 << 16
-                    zip_file.writestr(info_csv, csv_bytes)
+            zip_buffer.seek(0)
+            zip_buffer.name = f"Backup_Completo_{timestamp}.zip"
 
-                    for item in lista_arquivos_para_zip:
-                        caminho_original = item['caminho']
-                        nome_final = item['nome_final']
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id, document=zip_buffer,
+                caption="📦 Aqui está seu backup completo."
+            )
 
-                        if caminho_original and nome_final:
-                            try:
-                                dados_foto = None
-                                if caminho_original.startswith("http"):
-                                    r = requests.get(caminho_original)
-                                    if r.status_code == 200:
-                                        dados_foto = r.content
-                                elif os.path.exists(caminho_original):
-                                    with open(caminho_original, 'rb') as f:
-                                        dados_foto = f.read()
-
-                                if dados_foto:
-                                    info_foto = zipfile.ZipInfo(nome_final)
-                                    info_foto.date_time = time.localtime(time.time())[
-                                        :6]
-                                    info_foto.compress_type = zipfile.ZIP_DEFLATED
-                                    info_foto.external_attr = 0o100644 << 16
-                                    zip_file.writestr(info_foto, dados_foto)
-                            except Exception as e:
-                                logger.error(f"Erro foto {nome_final}: {e}")
-
-                with open(caminho_fisico_zip, 'rb') as arquivo_pronto:
-                    await context.bot.send_document(
-                        chat_id=update.effective_chat.id,
-                        document=arquivo_pronto,
-                        filename=f"Backup_Completo_{timestamp}.zip",
-                        caption="📦 Aqui está seu backup completo."
-                    )
-
-            finally:
-                await asyncio.sleep(1)
-
-                if os.path.exists(caminho_fisico_zip):
-                    try:
-                        os.remove(caminho_fisico_zip)
-                    except Exception as e:
-                        logger.error(f"Erro ao limpar temp: {e}")
-
-            await query.delete_message()
+        await query.delete_message()
 
     except Exception as e:
         logger.error(f"Erro ao gerar backup: {e}", exc_info=True)
         try:
-            await query.edit_message_text("❌ Ocorreu um erro ao gerar o arquivo de backup.")
+            await query.edit_message_text("❌ Ocorreu um erro ao processar os arquivos.")
         except:
             pass
 
