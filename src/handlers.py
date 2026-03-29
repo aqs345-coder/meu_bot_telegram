@@ -342,19 +342,13 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         timestamp = datetime.now().strftime("%Y-%m-%d")
 
-        # =========================================================
-        # OTIMIZAÇÃO 1: DOWNLOAD CONCORRENTE DAS IMAGENS
-        # =========================================================
+        semaforo = asyncio.Semaphore(5)
+
         urls_para_baixar = {reg[10] for reg in registros if reg[10] and str(
             reg[10]).startswith("http")}
-
-        # Cria as tarefas para baixar tudo ao mesmo tempo
-        tarefas = [baixar_imagem_async(url) for url in urls_para_baixar]
-
-        # Espera todas terminarem e guarda em um dicionário {url: bytes_da_foto}
-        # Se você tiver 10 fotos, isso levará o tempo de baixar 1 foto (a mais pesada), e não a soma das 10.
+        tarefas = [baixar_imagem_async(url, semaforo)
+                   for url in urls_para_baixar]
         imagens_baixadas = dict(await asyncio.gather(*tarefas))
-
         # =========================================================
         # GERAÇÃO DO CSV BASE (Sempre necessário para ZIP e CSV)
         # =========================================================
@@ -441,26 +435,34 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
 
         elif tipo == "export_zip":
-            # OTIMIZAÇÃO 2: ZipFile em memória RAM ao invés de tempfile
-            zip_buffer = io.BytesIO()
+            # Para o ZIP (que contém dezenas de imagens pesadas), voltamos pro disco!
 
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                # Adiciona o CSV
-                zip_file.writestr(f"Diario_Bordo_{timestamp}.csv", csv_bytes)
+            f_temp = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+            caminho_fisico_zip = f_temp.name
+            f_temp.close()
 
-                # Adiciona as imagens que já estão na RAM
-                for item in lista_arquivos_para_zip:
-                    bytes_foto = imagens_baixadas.get(item['caminho_original'])
-                    if bytes_foto:
-                        zip_file.writestr(item['nome_final'], bytes_foto)
+            try:
+                with zipfile.ZipFile(caminho_fisico_zip, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    zip_file.writestr(
+                        f"Diario_Bordo_{timestamp}.csv", csv_bytes)
 
-            zip_buffer.seek(0)
-            zip_buffer.name = f"Backup_Completo_{timestamp}.zip"
+                    for item in lista_arquivos_para_zip:
+                        bytes_foto = imagens_baixadas.get(
+                            item['caminho_original'])
+                        if bytes_foto:
+                            zip_file.writestr(item['nome_final'], bytes_foto)
 
-            await context.bot.send_document(
-                chat_id=update.effective_chat.id, document=zip_buffer,
-                caption="📦 Aqui está seu backup completo."
-            )
+                # Lê do disco e envia
+                with open(caminho_fisico_zip, 'rb') as arquivo_pronto:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id, document=arquivo_pronto,
+                        filename=f"Backup_Completo_{timestamp}.zip",
+                        caption="📦 Aqui está seu backup completo."
+                    )
+            finally:
+                # Limpa o disco do Render logo após o envio
+                if os.path.exists(caminho_fisico_zip):
+                    os.remove(caminho_fisico_zip)
 
         await query.delete_message()
 
