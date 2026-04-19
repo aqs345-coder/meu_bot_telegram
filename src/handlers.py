@@ -329,12 +329,13 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
         cursor.execute(
             "SELECT id, data_estagio, horario, local, tipo_atividade, conteudo, "
             "objetivos, descricao, dificuldades, aspectos_positivos, caminho_anexo "
-            "FROM registros WHERE user_id = %s ORDER BY TO_DATE(data_estagio, 'DD/MM/YYYY') ASC",
+            "FROM registros WHERE user_id = %s",
             (user_id,)
         )
         registros = cursor.fetchall()
         cursor.close()
         conn.close()
+        registros.sort(key=lambda x: datetime.strptime(x[1], '%d/%m/%Y'))
 
         if not registros:
             await query.edit_message_text("❌ Você ainda não possui registros para exportar.")
