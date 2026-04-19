@@ -329,7 +329,7 @@ async def executar_exportacao(update: Update, context: ContextTypes.DEFAULT_TYPE
         cursor.execute(
             "SELECT id, data_estagio, horario, local, tipo_atividade, conteudo, "
             "objetivos, descricao, dificuldades, aspectos_positivos, caminho_anexo "
-            "FROM registros WHERE user_id = %s ORDER BY data_estagio ASC",
+            "FROM registros WHERE user_id = %s ORDER BY TO_DATE(data_estagio, 'DD/MM/YYYY') ASC",
             (user_id,)
         )
         registros = cursor.fetchall()
