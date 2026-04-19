@@ -26,7 +26,7 @@ def init_db():
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
                 data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                data_estagio VARCHAR(20),
+                data_estagio DATE,
                 horario VARCHAR(50),
                 local VARCHAR(100),
                 atividade VARCHAR(100),
